@@ -52,7 +52,7 @@ add-generic-password` 只支持把密钥写在 argv 里，所以密钥创建那�
 
 ```bash
 # 安装（已在本机 desktop profile 里执行过一次）
-dsh plugin --profile desktop add "/Users/lion/Doubao/chats/2026-11-22/new-chat-9/dsh-connect-doubao-macos"
+dsh plugin --profile desktop add "$HOME/workspace/dsh-workspace/plugins/dsh-connect-doubao"
 
 # 卸载
 dsh plugin --profile desktop remove dsh-connect-doubao
