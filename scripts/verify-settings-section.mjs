@@ -8,7 +8,7 @@
 import { readFileSync } from 'node:fs'
 import vm from 'node:vm'
 
-const BUNDLE = 'E:/project/新建文件夹/dsh-connect-doubao/lib/client.js'
+const BUNDLE = 'E:/project/新建文件夹/dsh-connect-doubao-macos/lib/client.js'
 const source = readFileSync(BUNDLE, 'utf8')
 
 const reactStub = {
@@ -86,7 +86,7 @@ console.log('\n=== settings.section assertions ===')
 const checks = [
   ['registered', section !== undefined],
   ['uses `id` (not `key`)', typeof section?.id === 'string'],
-  ['id is the plugin id', section?.id === 'dsh-connect-doubao'],
+  ['id is the plugin id', section?.id === 'dsh-connect-doubao-macos'],
   ['uses `order` (not `priority`)', typeof section?.order === 'number'],
   ['label is a function (locale-resolved)', section?.hasLabelFn === true],
   ['label resolves to 豆包', section?.label === '豆包'],

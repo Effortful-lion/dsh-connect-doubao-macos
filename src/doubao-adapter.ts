@@ -16,7 +16,7 @@
  *   — pi-ai provider 的装配方式（createProvider + openAICompletionsApi +
  *     inert auth plane + 用 shim 的进程内 secret 作为 apiKey）由该项目实现。
  *
- * @module dsh-connect-doubao/adapter
+ * @module dsh-connect-doubao-macos/adapter
  */
 import { createProvider } from '@earendil-works/pi-ai'
 import type { Api, AuthContext, CredentialStore, Model, Provider, ProviderStreams } from '@earendil-works/pi-ai'
@@ -53,7 +53,7 @@ const INERT_AUTH: { credentials: CredentialStore; authContext: AuthContext } = {
     async read() { return undefined },
     async list() { return [] },
     async modify() {
-      throw new Error('dsh-connect-doubao: the doubao route has no pi-ai credential lifecycle')
+      throw new Error('dsh-connect-doubao-macos: the doubao route has no pi-ai credential lifecycle')
     },
     async delete() {},
   },
@@ -268,7 +268,7 @@ export function createDoubaoAdapter(options: DoubaoAdapterOptions): DoubaoAdapte
     provider: providerId,
     displayName: providerName,
     streamIdleTimeoutMs: DOUBAO_STREAM_IDLE_TIMEOUT_MS,
-    retryPolicy: resolveRetryPolicy(undefined, 'dsh-connect-doubao retryPolicy'),
+    retryPolicy: resolveRetryPolicy(undefined, 'dsh-connect-doubao-macos retryPolicy'),
     configuredMaxTokens: new Map(),
     // The catalog is static, so no model is known-bad up front. The route must
     // not pre-condemn a model that the shim would serve fine.

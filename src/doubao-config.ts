@@ -9,7 +9,7 @@
  * the field name without importing anything Node-side. The Loader reads `Config`
  * from the plugin entry, which re-exports this.
  *
- * @module dsh-connect-doubao/config
+ * @module dsh-connect-doubao-macos/config
  */
 import z from '@deepseek-ai/schemastery'
 

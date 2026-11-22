@@ -19,7 +19,7 @@
  * The failure mode is repetition (there is no native stop token), not
  * malformation — hence {@link dedupeCalls} and the caller's step budget.
  *
- * @module dsh-connect-doubao/tools
+ * @module dsh-connect-doubao-macos/tools
  */
 
 /** One inbound OpenAI tool definition, as pi-ai sends it. */

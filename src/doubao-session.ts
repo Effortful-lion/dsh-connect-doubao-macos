@@ -22,7 +22,7 @@
  * opening, same length, shorter transcript) starts a NEW conversation, which is
  * the behaviour this plugin had before and is never worse than a wrong reuse.
  *
- * @module dsh-connect-doubao/session
+ * @module dsh-connect-doubao-macos/session
  */
 import { createHash } from 'node:crypto'
 

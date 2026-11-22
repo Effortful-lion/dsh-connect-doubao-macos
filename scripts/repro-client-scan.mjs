@@ -12,7 +12,7 @@ import { readFileSync, existsSync, statSync, realpathSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 
 const PKGS = [
-  ['doubao', 'C:/Users/35498/.dsh/profiles/desktop/node_modules/dsh-connect-doubao'],
+  ['doubao', 'C:/Users/35498/.dsh/profiles/desktop/node_modules/dsh-connect-doubao-macos'],
   ['workbuddy', 'C:/Users/35498/.dsh/profiles/desktop/node_modules/dsh-connect-workbuddy'],
   ['trae', 'C:/Users/35498/.dsh/profiles/desktop/node_modules/dsh-connect-trae'],
 ]

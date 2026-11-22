@@ -14,7 +14,7 @@
  * 参考：dsh-connect-workbuddy 的 provider 注册链路（adapter + 可配置 provider +
  *   模型发现 + webServer 只读路由），结构参照其做法。
  *
- * @module dsh-connect-doubao
+ * @module dsh-connect-doubao-macos
  */
 import { createDoubaoAdapter } from './doubao-adapter.ts'
 import { createDoubaoShim } from './doubao-shim.ts'
@@ -42,7 +42,7 @@ import { writeStoredSetting, readStoredSettings, withStoredSettings } from './do
 import { liveModels, invalidateDiscovery, discoverAllCachedModels, refreshDiscovery } from './doubao-discovery.ts'
 import type { DoubaoSettings } from './doubao-config.ts'
 
-export const PLUGIN_ID = 'dsh-connect-doubao'
+export const PLUGIN_ID = 'dsh-connect-doubao-macos'
 export const PLUGIN_NAME = 'DSH Connect Doubao'
 
 /**
@@ -195,7 +195,7 @@ export const inject = ['llm']
  *
  * The Host resolves a provider's namespace by EXACT match, and the namespace it
  * serves is the Loader entry id — which a profile may mount as
- * `dsh-connect-doubao` or, as the live Desktop host does, as an include. A
+ * `dsh-connect-doubao-macos` or, as the live Desktop host does, as an include. A
  * guessed name that misses makes the config entry read as unconfigured and the
  * model's settings disappear. So ask the Loader entry, with the declared id as
  * the documented fallback.
@@ -227,7 +227,7 @@ export function apply(ctx: DoubaoPluginContext, config: DoubaoSettings = { enabl
    * Seeded from the plugin's OWN file, which wins over the Loader config: on
    * this host line the fiber never reaches ACTIVE, so the Loader can neither
    * expose nor accept a settings write for this plugin (`No configurable plugin
-   * entry "dsh-connect-doubao"`, measured 2026-11-02). The file is the only
+   * entry "dsh-connect-doubao-macos"`, measured 2026-11-02). The file is the only
    * place a save can land, which is why it takes precedence — trusting the
    * Loader value would resurrect the silent-revert bug for any user who ever
    * saved a switch.
@@ -322,7 +322,7 @@ export function apply(ctx: DoubaoPluginContext, config: DoubaoSettings = { enabl
       })
     } catch (error: unknown) {
       // Discovery is optional: the provider still streams without it.
-      ctx.logger.error('dsh-connect-doubao: model discovery registration failed', error)
+      ctx.logger.error('dsh-connect-doubao-macos: model discovery registration failed', error)
     }
 
     /**
@@ -418,7 +418,7 @@ export function apply(ctx: DoubaoPluginContext, config: DoubaoSettings = { enabl
       }
     } catch (error: unknown) {
       presentationDiag.error = (error as Error)?.message ?? String(error)
-      ctx.logger.error('dsh-connect-doubao: settings presentation registration failed', error)
+      ctx.logger.error('dsh-connect-doubao-macos: settings presentation registration failed', error)
     }
 
     // Re-filter the picker whenever the user saves a different selection.
@@ -491,12 +491,12 @@ export function apply(ctx: DoubaoPluginContext, config: DoubaoSettings = { enabl
           disposeStats()
         })
       } catch (error: unknown) {
-        ctx.logger.error('dsh-connect-doubao: web route registration failed', error)
+        ctx.logger.error('dsh-connect-doubao-macos: web route registration failed', error)
       }
     })
   } catch (error: unknown) {
     disposed = true
-    ctx.logger.error('dsh-connect-doubao: provider registration failed', error)
+    ctx.logger.error('dsh-connect-doubao-macos: provider registration failed', error)
     // Release whatever landed before the throw; a half-registered provider
     // would be visible in the model picker and unroutable.
     adapterRelease?.()

@@ -24,7 +24,7 @@ import { readFileSync } from 'node:fs'
  * `need_deep_think = 10000 + level` plus `ext.use_deep_think`. See
  * {@link DOUBAO_REASONING_LEVELS} for which levels are verified.
  *
- * @module dsh-connect-doubao/catalog
+ * @module dsh-connect-doubao-macos/catalog
  */
 
 /** Provider route id this bundle owns. */

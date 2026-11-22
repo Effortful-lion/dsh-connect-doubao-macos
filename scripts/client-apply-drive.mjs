@@ -10,7 +10,7 @@ import { readFileSync } from 'node:fs'
 import vm from 'node:vm'
 import { createElement } from 'react'
 
-const BUNDLE = 'E:/project/新建文件夹/dsh-connect-doubao/lib/client.js'
+const BUNDLE = 'E:/project/新建文件夹/dsh-connect-doubao-macos/lib/client.js'
 const source = readFileSync(BUNDLE, 'utf8')
 
 // Minimal React that records what it renders, so the component body runs

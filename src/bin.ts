@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * `dsh-connect-doubao` — command dispatcher.
+ * `dsh-connect-doubao-macos` — command dispatcher.
  *
- * A bare `dsh-connect-doubao` keeps behaving like the smoke probe (as it always
+ * A bare `dsh-connect-doubao-macos` keeps behaving like the smoke probe (as it always
  * did), and this macOS port adds one explicit subcommand with no equivalent on
  * the settings card: `login`, a terminal-driven browser sign-in.
  */

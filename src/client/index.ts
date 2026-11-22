@@ -11,7 +11,7 @@
  * provide stops `apply` from ever running, so the settings surface is probed
  * softly through `ctx.get()` instead — see below.
  *
- * @module dsh-connect-doubao/client
+ * @module dsh-connect-doubao-macos/client
  */
 import type { Context } from '@deepseek-ai/cordis'
 // Type-only side-effect imports: these modules augment Cordis' `LocaleNamespaceMap`
@@ -48,7 +48,7 @@ export type DoubaoClientContext = Context & {
 }
 
 /** Stable browser-plugin name. */
-export const name = 'dsh-connect-doubao-client'
+export const name = 'dsh-connect-doubao-macos-client'
 
 /** Only the universally available seats; see the module note on the gate. */
 export const inject = ['slots', 'locale']
@@ -62,7 +62,7 @@ export const inject = ['slots', 'locale']
  */
 export function apply(ctx: DoubaoClientContext): void {
   try {
-    ctx.effect(() => ctx.locale.register(NAMESPACE, { zh, en }), 'dsh-connect-doubao: card copy')
+    ctx.effect(() => ctx.locale.register(NAMESPACE, { zh, en }), 'dsh-connect-doubao-macos: card copy')
     const t = ctx.locale.bind(NAMESPACE) as DoubaoCardInjected['t']
 
     /**
@@ -85,11 +85,11 @@ export function apply(ctx: DoubaoClientContext): void {
       | undefined
     if (forms !== undefined) {
       // The namespace the Host actually serves is host-chosen: the profile patch
-      // may mount this bundle as `dsh-connect-doubao` or, as the live Desktop
+      // may mount this bundle as `dsh-connect-doubao-macos` or, as the live Desktop
       // host does, as an include. ASK the mirror rather than guessing — the Host
       // resolves a provider's namespace by exact match, so a wrong guess binds
       // the card to a namespace nothing serves and the write path is dead.
-      let ns = 'dsh-connect-doubao'
+      let ns = 'dsh-connect-doubao-macos'
       try {
         const namespaces = forms.describe().getSnapshot().view?.namespaces ?? []
         const served = namespaces.find(entry => entry.ns === ns || /doubao/i.test(entry.ns))
@@ -120,12 +120,12 @@ export function apply(ctx: DoubaoClientContext): void {
         }, DoubaoQuotaCard))
       } catch (error: unknown) {
         // Isolated per slot: a failed registration must not take the other down.
-        console.error(`[dsh-connect-doubao] card slot "${slotName}" failed to register (host provider unaffected):`, error)
+        console.error(`[dsh-connect-doubao-macos] card slot "${slotName}" failed to register (host provider unaffected):`, error)
       }
     }
 
-    registerCard('plugins.bundle.config', 'dsh-connect-doubao')
-    registerCard('plugins.row.config', 'dsh-connect-doubao#dsh-connect-doubao')
+    registerCard('plugins.bundle.config', 'dsh-connect-doubao-macos')
+    registerCard('plugins.row.config', 'dsh-connect-doubao-macos#dsh-connect-doubao-macos')
 
     /**
      * Top-level entry in the SETTINGS LEFT-HAND NAV — the surface the user
@@ -179,7 +179,7 @@ export function apply(ctx: DoubaoClientContext): void {
           ): () => void
         }).register({
           name: 'settings.section',
-          id: 'dsh-connect-doubao',
+          id: 'dsh-connect-doubao-macos',
           order: 40,
           label: () => t('card.navLabel'),
           inject: () => settingsScope === undefined
@@ -187,7 +187,7 @@ export function apply(ctx: DoubaoClientContext): void {
             : { t, settingsScope },
         }, DoubaoQuotaCard))
       } catch (error: unknown) {
-        console.error('[dsh-connect-doubao] settings.section failed to register (host provider unaffected):', error)
+        console.error('[dsh-connect-doubao-macos] settings.section failed to register (host provider unaffected):', error)
       }
     }
 
@@ -223,7 +223,7 @@ export function apply(ctx: DoubaoClientContext): void {
             : { t, resolveText: resolveHostText },
         }, DoubaoModelOptionLabel))
       } catch (error: unknown) {
-        console.error('[dsh-connect-doubao] conversation.input.model.label failed to register:', error)
+        console.error('[dsh-connect-doubao-macos] conversation.input.model.label failed to register:', error)
       }
     }
 
@@ -246,7 +246,7 @@ export function apply(ctx: DoubaoClientContext): void {
           inject: () => ({ t }),
         }, DoubaoComposerRateControl))
       } catch (error: unknown) {
-        console.error('[dsh-connect-doubao] conversation.input.right failed to register:', error)
+        console.error('[dsh-connect-doubao-macos] conversation.input.right failed to register:', error)
       }
     }
 
@@ -254,7 +254,7 @@ export function apply(ctx: DoubaoClientContext): void {
     registerComposerRateControl()
   } catch (error: unknown) {
     // Degrade silently on the page; developers see the cause in the console.
-    console.error('[dsh-connect-doubao] client card failed to load (host provider unaffected):', error)
+    console.error('[dsh-connect-doubao-macos] client card failed to load (host provider unaffected):', error)
   }
 }
 

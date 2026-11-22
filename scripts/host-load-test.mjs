@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs'
 
 import { pathToFileURL } from 'node:url'
 
-const PLUGIN = pathToFileURL('E:/project/新建文件夹/dsh-connect-doubao/lib/index.js').href
+const PLUGIN = pathToFileURL('E:/project/新建文件夹/dsh-connect-doubao-macos/lib/index.js').href
 
 console.log(`electron ${process.versions.electron ?? '(none)'} node ${process.versions.node}`)
 for (const p of ['@earendil-works/pi-ai', '@deepseek-ai/dsh-llm', '@deepseek-ai/dsh-llm-pi-ai']) {

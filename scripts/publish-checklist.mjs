@@ -204,7 +204,7 @@ check('投稿 YAML 通过全部规则校验', () => {
 const failed = results.filter(r => !r.pass)
 const width = Math.max(...results.map(r => r.name.length))
 console.log('='.repeat(width + 34))
-console.log('发布前检查 · dsh-connect-doubao')
+console.log('发布前检查 · dsh-connect-doubao-macos')
 console.log('='.repeat(width + 34))
 for (const r of results) {
   console.log(`${r.pass ? 'PASS' : 'FAIL'}  ${r.name.padEnd(width)}  ${r.detail}`)

@@ -34,7 +34,7 @@
  * undefined so the caller falls back to the static catalog. A malformed cache
  * must never empty the user's model picker.
  *
- * @module dsh-connect-doubao/discovery
+ * @module dsh-connect-doubao-macos/discovery
  */
 import { readFileSync, readdirSync, existsSync } from 'node:fs'
 import { join } from 'node:path'

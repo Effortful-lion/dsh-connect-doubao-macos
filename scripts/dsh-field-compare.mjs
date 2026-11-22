@@ -15,9 +15,9 @@ const REPOS = 'E:/project/新建文件夹/repos/wb/'
 const TARGETS = [
   ['workbuddy (installed)', PROFILE + 'dsh-connect-workbuddy/package.json'],
   ['trae (installed)', PROFILE + 'dsh-connect-trae/package.json'],
-  ['doubao (installed)', PROFILE + 'dsh-connect-doubao/package.json'],
+  ['doubao (installed)', PROFILE + 'dsh-connect-doubao-macos/package.json'],
   ['workbuddy (source)', REPOS + 'dsh-connect-workbuddy-main/package.json'],
-  ['doubao (source)', 'E:/project/新建文件夹/dsh-connect-doubao/package.json'],
+  ['doubao (source)', 'E:/project/新建文件夹/dsh-connect-doubao-macos/package.json'],
 ]
 
 function readDsh(p) {
@@ -65,7 +65,7 @@ for (const r of rows) {
 // Does the installed doubao package actually resolve ./client to a file?
 console.log('\n=== installed doubao ./client resolution ===')
 for (const p of [
-  PROFILE + 'dsh-connect-doubao/lib/client.js',
+  PROFILE + 'dsh-connect-doubao-macos/lib/client.js',
   PROFILE + 'dsh-connect-workbuddy/lib/client.js',
 ]) {
   let ok = false

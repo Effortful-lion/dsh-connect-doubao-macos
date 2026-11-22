@@ -19,7 +19,7 @@
  * (the "what is left" figure). Numbers use tabular figures so a countdown
  * ticking every second does not make the line jitter.
  *
- * @module dsh-connect-doubao/client-styles
+ * @module dsh-connect-doubao-macos/client-styles
  */
 export const DOUBAO_CARD_CSS = `
 .dbq-card { display: flex; flex-direction: column; gap: 16px; padding: 16px 18px;

@@ -1,8 +1,8 @@
 {
-  "name": "dsh-connect-doubao",
+  "name": "dsh-connect-doubao-macos",
   "displayName": "DSH Connect Doubao (macOS port)",
   "description": "把豆包（Doubao）账号接入 DeepSeek Harness：实时发现线上菜单模型、对话框直接展示计费倍率与对比、按需透传上游返回的 reasoning_content（不保证提供隐藏推理）、「工作任务」模型（走会员付费额度）、Seedream 生图，以及原生 Token 用量/会话统计与实时额度看板。只需浏览器扫码登录一次。macOS / Windows 双平台：Windows 用 DPAPI 密封会话，macOS 用登录钥匙串里的密钥 + AES-256-GCM 密封。",
-  "version": "0.8.1-macos.1",
+  "version": "0.9.0-macos.1",
   "license": "MIT",
   "keywords": [
     "dsh-plugin",
@@ -19,10 +19,10 @@
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
   "bin": {
-    "dsh-connect-doubao": "lib/bin.js",
-    "dsh-connect-doubao-probe": "lib/cli-probe.js",
-    "dsh-connect-doubao-doctor": "lib/cli-doctor.js",
-    "dsh-connect-doubao-login": "lib/cli-login.js"
+    "dsh-connect-doubao-macos": "lib/bin.js",
+    "dsh-connect-doubao-macos-probe": "lib/cli-probe.js",
+    "dsh-connect-doubao-macos-doctor": "lib/cli-doctor.js",
+    "dsh-connect-doubao-macos-login": "lib/cli-login.js"
   },
   "exports": {
     ".": {

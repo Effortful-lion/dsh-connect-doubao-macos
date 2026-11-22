@@ -242,14 +242,14 @@ export async function runDoctor(): Promise<DoctorReport> {
 
   return {
     ok: checks.every((check) => check.status === 'ok'),
-    plugin: 'dsh-connect-doubao',
+    plugin: 'dsh-connect-doubao-macos',
     checks,
   }
 }
 
 function renderText(report: DoctorReport): string {
   const mark: Record<CheckStatus, string> = { ok: '[ ok ]', fail: '[FAIL]', skip: '[skip]' }
-  const lines = [`dsh-connect-doubao doctor`, '']
+  const lines = [`dsh-connect-doubao-macos doctor`, '']
   for (const check of report.checks) {
     lines.push(`${mark[check.status]} ${check.name.padEnd(12)} ${check.detail}`)
   }

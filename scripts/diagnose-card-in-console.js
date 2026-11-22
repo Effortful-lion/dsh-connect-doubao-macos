@@ -9,7 +9,7 @@
  *    (2) 渲染了但溢出/被藏      —— 搜得到「额度」，但 rect 在视口外或尺寸为 0
  *    (3) 渲染了且可见          —— rect 与其它插件的卡片并排正常
  *
- *  为什么需要它：宿主 console 里没有 `[dsh-connect-doubao]` 开头的报错，说明
+ *  为什么需要它：宿主 console 里没有 `[dsh-connect-doubao-macos]` 开头的报错，说明
  *  卡片没有抛异常（我们的 apply() 用双层 try/catch 兜底，异常会被吞成
  *  console.error）。于是「不报错 + 不显示」只剩两类可能，必须靠 DOM 区分。
  *
@@ -23,7 +23,7 @@
 (function diagnoseDoubaoCard() {
   'use strict'
 
-  const PLUGIN_ID = 'dsh-connect-doubao'
+  const PLUGIN_ID = 'dsh-connect-doubao-macos'
   const out = []
   const say = (...a) => { const s = a.join(' '); out.push(s); console.log(s) }
   const hr = (t) => say('\n' + '='.repeat(68) + '\n' + t + '\n' + '='.repeat(68))

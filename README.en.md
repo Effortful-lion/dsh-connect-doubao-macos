@@ -13,8 +13,8 @@
 > The protocol layer is unchanged; only credential sealing, Chromium discovery and the
 > Doubao data-directory probe became platform-aware. See [docs/macos-port.md](docs/macos-port.md).
 
-[![npm version](https://img.shields.io/npm/v/dsh-connect-doubao.svg)](https://www.npmjs.com/package/dsh-connect-doubao)
-[![license](https://img.shields.io/npm/l/dsh-connect-doubao.svg)](./LICENSE)
+[![npm version](https://img.shields.io/npm/v/dsh-connect-doubao-macos.svg)](https://www.npmjs.com/package/dsh-connect-doubao-macos)
+[![license](https://img.shields.io/npm/l/dsh-connect-doubao-macos.svg)](./LICENSE)
 [![dshfind](https://img.shields.io/badge/dshmarket-dshfind-blueviolet)](https://dshfind.dev)
 
 ![Doubao card: quota panel and model checklist](docs/assets/dsh-connect-doubao-quota-card.png)
@@ -194,7 +194,7 @@ DSH (pi-ai provider)
    The DSH host records tool calls and results. File-change counts come only from returned
    DSH diff data; missing statistics are never estimated. Only upstream-provided
    `reasoning_content` is forwarded when present; hidden reasoning is not guaranteed.
-5. **Read-only routes** — `/plugins/dsh-connect-doubao/quota` and `/catalog` serve quota
+5. **Read-only routes** — `/plugins/dsh-connect-doubao-macos/quota` and `/catalog` serve quota
    and catalog from an **explicit allow-list** (no upstream field is passed through),
    and refuse non-loopback origins.
 
@@ -204,14 +204,14 @@ DSH (pi-ai provider)
 
 ```bash
 # ① via the DSH CLI (recommended)
-dsh plugin --profile desktop add dsh-connect-doubao
+dsh plugin --profile desktop add dsh-connect-doubao-macos
 
 # ② from npm
-npm install -g dsh-connect-doubao
-dsh plugin --profile desktop add dsh-connect-doubao
+npm install -g dsh-connect-doubao-macos
+dsh plugin --profile desktop add dsh-connect-doubao-macos
 
 # ③ local development (never published; links the source directory)
-dsh plugin --profile desktop add "E:\path\to\dsh-connect-doubao"
+dsh plugin --profile desktop add "E:\path\to\dsh-connect-doubao-macos"
 ```
 
 > Option ③ writes a `link:` dependency — after editing the sources, just run
@@ -276,12 +276,12 @@ and chat still works.
 
 ```bash
 # check the whole chain without spending inference quota
-dsh-connect-doubao-doctor
-dsh-connect-doubao-doctor --json
+dsh-connect-doubao-macos-doctor
+dsh-connect-doubao-macos-doctor --json
 
 # smoke probe (spends one inference request)
-dsh-connect-doubao-probe --prompt "hi"
-dsh-connect-doubao-probe --prompt "hi" --model 5 --thinking high --json
+dsh-connect-doubao-macos-probe --prompt "hi"
+dsh-connect-doubao-macos-probe --prompt "hi" --model 5 --thinking high --json
 ```
 
 Full `probe` flags:

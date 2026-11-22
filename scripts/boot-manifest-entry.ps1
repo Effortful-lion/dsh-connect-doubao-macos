@@ -17,7 +17,7 @@ $boot = $json | ConvertFrom-Json
 $entries = @($boot.entries)
 Write-Output "top-level keys : $($boot.PSObject.Properties.Name -join ', ')"
 Write-Output "total entries  : $($entries.Count)"
-foreach ($id in @('dsh-connect-doubao','dsh-connect-workbuddy','dsh-connect-trae')) {
+foreach ($id in @('dsh-connect-doubao-macos','dsh-connect-workbuddy','dsh-connect-trae')) {
   $e = $entries | Where-Object { $_.id -eq $id } | Select-Object -First 1
   Write-Output ""
   Write-Output "=== $id ==="

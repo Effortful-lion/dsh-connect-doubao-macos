@@ -6,7 +6,7 @@
  * `Translate` is typed against `zh`'s keys, so adding a key to `en` and not to
  * `zh` (or vice versa) is a type error rather than a runtime `undefined`.
  *
- * @module dsh-connect-doubao/client-locales
+ * @module dsh-connect-doubao-macos/client-locales
  */
 
 /** Chinese copy. The key set that defines the contract. */

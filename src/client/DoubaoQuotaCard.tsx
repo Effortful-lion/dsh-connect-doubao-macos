@@ -19,7 +19,7 @@
  * cookie, token or account id, and it never reads a setting other than the
  * ticked model ids.
  *
- * @module dsh-connect-doubao/client-card
+ * @module dsh-connect-doubao-macos/client-card
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactElement } from 'react'
@@ -550,7 +550,7 @@ export function DoubaoQuotaCard(props: DoubaoCardProps): ReactElement {
    *
    * Neither `scope.set()` NOR `settings.mutate` can persist this plugin: its
    * fiber never reaches ACTIVE on DSH 0.2.1, so the host reports
-   * `No configurable plugin entry "dsh-connect-doubao"` and drops every write.
+   * `No configurable plugin entry "dsh-connect-doubao-macos"` and drops every write.
    * The endpoint writes a JSON file the plugin owns (write-temp-then-rename),
    * and returns the value it now reads back — so a successful response is
    * proof of persistence, not a claim.

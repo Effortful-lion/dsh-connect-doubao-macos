@@ -5,7 +5,7 @@
 import { readFileSync } from 'node:fs'
 
 const FILES = {
-  doubao: 'E:/project/新建文件夹/dsh-connect-doubao/lib/client.js',
+  doubao: 'E:/project/新建文件夹/dsh-connect-doubao-macos/lib/client.js',
   workbuddy: 'C:/Users/35498/.dsh/profiles/desktop/node_modules/dsh-connect-workbuddy/lib/client.js',
   trae: 'C:/Users/35498/.dsh/profiles/desktop/node_modules/dsh-connect-trae/lib/client.js',
 }

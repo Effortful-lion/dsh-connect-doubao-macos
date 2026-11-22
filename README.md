@@ -10,8 +10,8 @@
 > 协议实现原样保留，只替换了平台相关的三块：凭据密封、Chromium 探测、豆包数据目录探测。
 > 差异清单见 [docs/macos-port.md](docs/macos-port.md)。
 
-[![npm version](https://img.shields.io/npm/v/dsh-connect-doubao.svg)](https://www.npmjs.com/package/dsh-connect-doubao)
-[![license](https://img.shields.io/npm/l/dsh-connect-doubao.svg)](./LICENSE)
+[![npm version](https://img.shields.io/npm/v/dsh-connect-doubao-macos.svg)](https://www.npmjs.com/package/dsh-connect-doubao-macos)
+[![license](https://img.shields.io/npm/l/dsh-connect-doubao-macos.svg)](./LICENSE)
 [![dshfind](https://img.shields.io/badge/dshmarket-dshfind-blueviolet)](https://dshfind.dev)
 
 ![豆包卡片：额度面板与模型清单](docs/assets/dsh-connect-doubao-quota-card.png)
@@ -22,7 +22,7 @@
 
 **登录方式只有一种：浏览器扫码登录一次。不需要安装或登录豆包桌面客户端。**
 
-点卡片里的「重新登录」（或终端跑 `dsh-connect-doubao login`），插件拉起一个独立的 Chromium
+点卡片里的「重新登录」（或终端跑 `dsh-connect-doubao-macos login`），插件拉起一个独立的 Chromium
 窗口打开豆包登录页；你扫码（或手机号验证）之后它通过 CDP 取回会话 cookie，并密封到
 `~/.dsh/doubao-credentials-browser.sealed`——Windows 用 DPAPI，macOS 用登录钥匙串里的
 32 字节密钥做 AES-256-GCM。整个流程只在登录那一刻需要人，之后都是纯 HTTP 调用。
@@ -237,7 +237,7 @@ DSH (pi-ai provider)
    命令行、环境变量或其它文件。
 2. **provider**：把 pi-ai 的 OpenAI 形状请求翻译成豆包方言（`bot_id` + `reasoning_effort`）。
 3. **流式**：上游的三行帧被解析成 pi-ai 的事件流，工具调用 / 压缩 / 权限仍由 Harness 掌控。
-4. **只读路由**：`/plugins/dsh-connect-doubao/quota` 与 `/catalog` 提供额度与目录，
+4. **只读路由**：`/plugins/dsh-connect-doubao-macos/quota` 与 `/catalog` 提供额度与目录，
    按**显式允许清单**构造响应，不透传上游任何字段，并拒绝非 loopback 来源。
 
 ---
@@ -248,14 +248,14 @@ DSH (pi-ai provider)
 
 ```bash
 # ① 通过 DSH CLI（推荐）
-dsh plugin --profile desktop add dsh-connect-doubao
+dsh plugin --profile desktop add dsh-connect-doubao-macos
 
 # ② npm 直装
-npm install -g dsh-connect-doubao
-dsh plugin --profile desktop add dsh-connect-doubao
+npm install -g dsh-connect-doubao-macos
+dsh plugin --profile desktop add dsh-connect-doubao-macos
 
 # ③ 本地开发（不发布，直接挂源码目录）
-dsh plugin --profile desktop add "E:\path\to\dsh-connect-doubao"
+dsh plugin --profile desktop add "E:\path\to\dsh-connect-doubao-macos"
 ```
 
 > 方式 ③ 会写成 `link:` 依赖，改完源码 `npm run build` 即可，**不需要重装**。
@@ -283,7 +283,7 @@ dsh plugin --profile desktop add "E:\path\to\dsh-connect-doubao"
 
 **登录态**只有一个来源（`src/doubao-auth.ts` + `src/doubao-auth-browser.ts`）：
 
-1. 卡片点「重新登录」（或 `dsh-connect-doubao login`）→ 拉一个独立的 Chromium 用户目录
+1. 卡片点「重新登录」（或 `dsh-connect-doubao-macos login`）→ 拉一个独立的 Chromium 用户目录
    （`~/.dsh/doubao-browser-profile`），打开 `https://www.doubao.com/chat/`；
 2. 扫码（或手机号验证）完成 → 通过 CDP `Storage.getCookies` 一次取回全部 cookie；
 3. 只保留豆包/Bytedance 域下、且 9 个必需会话 cookie 齐备的那份，用系统密钥库密封到
@@ -312,16 +312,16 @@ dsh plugin --profile desktop add "E:\path\to\dsh-connect-doubao"
 
 ```bash
 # 扫码登录一次（打开独立 Chromium 窗口；Windows / macOS 都可用）
-dsh-connect-doubao-login
-dsh-connect-doubao-login --timeout 180
+dsh-connect-doubao-macos-login
+dsh-connect-doubao-macos-login --timeout 180
 
 # 体检整条链路（不消耗推理额度）
-dsh-connect-doubao-doctor
-dsh-connect-doubao-doctor --json
+dsh-connect-doubao-macos-doctor
+dsh-connect-doubao-macos-doctor --json
 
 # 冒烟探针（会消耗一次推理额度）
-dsh-connect-doubao-probe --prompt "hi"
-dsh-connect-doubao-probe --prompt "hi" --model 5 --thinking high --json
+dsh-connect-doubao-macos-probe --prompt "hi"
+dsh-connect-doubao-macos-probe --prompt "hi" --model 5 --thinking high --json
 ```
 
 `probe` 的完整参数：
@@ -392,7 +392,7 @@ npm run check       # 以上全部
     读取也不依赖任何宿主服务在线。原因是宿主这条路对本插件**完全关闭**：它的 fiber 永远停在
     `state 1`（LOADING，和 `hmr`、`credentials` 一样），因此 `entry.fiber.runtime.Config`
     从不挂载 → 宿主 `describe()` 直接过滤掉这个命名空间 → 任何写入都以
-    `No configurable plugin entry "dsh-connect-doubao"` 失败。
+    `No configurable plugin entry "dsh-connect-doubao-macos"` 失败。
     **历史上这个插件的设置一次都没能落盘过**（包括手工改的），所以卡片会出现「点了没反应 /
     `host did not persist the value` / 保存成功但刷新后回退」三种症状。
     schema 里仍然保留 `asVolatile()`：那是宿主侧的正当声明，一旦上游修好 fiber 生命周期，

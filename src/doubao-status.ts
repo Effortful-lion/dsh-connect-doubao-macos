@@ -1,7 +1,7 @@
 /**
  * Read-only HTTP view of the Doubao quota, for the plugin UI card.
  *
- * Reached at `/plugins/dsh-connect-doubao/quota` on the Harness web server.
+ * Reached at `/plugins/dsh-connect-doubao-macos/quota` on the Harness web server.
  *
  * SECURITY: this response is a NUMBER VIEW, never a credential view. It
  * contains plan name, two percentage windows and their reset instants — no
@@ -10,7 +10,7 @@
  * upstream returned, so a future field added to the quota endpoint cannot leak
  * into the browser by accident.
  *
- * @module dsh-connect-doubao/status
+ * @module dsh-connect-doubao-macos/status
  */
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { fetchQuota, findWindow, millisUntilReset, invalidateQuotaCache, type QuotaWindow } from './doubao-quota.ts'
@@ -27,13 +27,13 @@ import type { DoubaoCatalogEntry } from './doubao-catalog.ts'
 import type { DoubaoStatsView } from './doubao-stats.ts'
 
 /** Route path, relative to the plugin mount point. */
-export const DOUBAO_QUOTA_PATH = '/plugins/dsh-connect-doubao/quota'
+export const DOUBAO_QUOTA_PATH = '/plugins/dsh-connect-doubao-macos/quota'
 
 /** Route serving the model checklist's catalog. */
-export const DOUBAO_CATALOG_PATH = '/plugins/dsh-connect-doubao/catalog'
+export const DOUBAO_CATALOG_PATH = '/plugins/dsh-connect-doubao-macos/catalog'
 
 /** Route serving live runtime session & token usage statistics. */
-export const DOUBAO_STATS_PATH = '/plugins/dsh-connect-doubao/stats'
+export const DOUBAO_STATS_PATH = '/plugins/dsh-connect-doubao-macos/stats'
 
 /** Hostnames an inbound browser request may come from. */
 const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '[::1]'])
@@ -256,14 +256,14 @@ export interface WebServerLike {
 }
 
 /** Route the card writes settings through. */
-export const DOUBAO_SAVE_PATH = '/plugins/dsh-connect-doubao/__save'
+export const DOUBAO_SAVE_PATH = '/plugins/dsh-connect-doubao-macos/__save'
 
 /**
  * Minimal shape of the `settings` service the presentation claim needs.
  *
  * Kept because the entry id is read from it elsewhere, but it is NOT a write
  * path for this plugin: `mutate` fails with
- * `No configurable plugin entry "dsh-connect-doubao"` because the plugin's
+ * `No configurable plugin entry "dsh-connect-doubao-macos"` because the plugin's
  * fiber never reaches ACTIVE on DSH 0.2.1, so the host never attaches
  * `runtime.Config` and `describe()` omits the namespace entirely. Every write
  * through the host has therefore always been dropped — see
@@ -309,7 +309,7 @@ async function readJsonBody(req: IncomingMessage): Promise<unknown> {
  * Why this exists at all: neither `settingsScope.set()` in the card nor
  * `settings.mutate` in the host can persist this plugin — its fiber never
  * reaches ACTIVE (see {@link SettingsLike}), so the host reports
- * `No configurable plugin entry "dsh-connect-doubao"` and drops the write.
+ * `No configurable plugin entry "dsh-connect-doubao-macos"` and drops the write.
  * This route writes a JSON file the plugin owns instead, which is also the
  * only copy the card can read back.
  *
@@ -471,7 +471,7 @@ export function registerDoubaoCatalogRoute(
  * ------------------------------------------------------------------ */
 
 /** Route the card reads the session state through, and starts a sign-in on. */
-export const DOUBAO_AUTH_PATH = '/plugins/dsh-connect-doubao/auth'
+export const DOUBAO_AUTH_PATH = '/plugins/dsh-connect-doubao-macos/auth'
 
 /**
  * The session payload.

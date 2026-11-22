@@ -33,7 +33,7 @@
  * shadow the live one — someone who copied rather than moved leaves an empty
  * directory behind. Callers walk the list and keep the first usable entry.
  *
- * @module dsh-connect-doubao/profile
+ * @module dsh-connect-doubao-macos/profile
  */
 import { existsSync, readdirSync } from 'node:fs'
 import { basename, dirname, join } from 'node:path'

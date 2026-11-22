@@ -9,7 +9,7 @@
  * session keys cross out of this module. No user prompt text, reply prose, or
  * credential is ever retained here.
  *
- * @module dsh-connect-doubao/stats
+ * @module dsh-connect-doubao-macos/stats
  */
 import type { UsageBreakdown } from './doubao-tokens.ts'
 import type { DoubaoContextWindowUsage } from './doubao-upstream.ts'

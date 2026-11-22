@@ -9,11 +9,11 @@
  * SECURITY: this is a NUMBER view. No cookie, no token, no account id, no email
  * or phone ever crosses this boundary, and the card renders nothing else.
  *
- * @module dsh-connect-doubao/client-contract
+ * @module dsh-connect-doubao-macos/client-contract
  */
 
 /** Route the card reads, relative to the Harness web server origin. */
-export const DOUBAO_QUOTA_PATH = '/plugins/dsh-connect-doubao/quota'
+export const DOUBAO_QUOTA_PATH = '/plugins/dsh-connect-doubao-macos/quota'
 
 /** One consumption window as the card consumes it. */
 export interface DoubaoQuotaWindowView {
@@ -177,7 +177,7 @@ export interface DoubaoCatalogView {
 }
 
 /** Host-side route serving the catalog for the checklist. */
-export const DOUBAO_CATALOG_PATH = '/plugins/dsh-connect-doubao/catalog'
+export const DOUBAO_CATALOG_PATH = '/plugins/dsh-connect-doubao-macos/catalog'
 
 /**
  * The Host-side settings WRITE route.
@@ -188,7 +188,7 @@ export const DOUBAO_CATALOG_PATH = '/plugins/dsh-connect-doubao/catalog'
  * process with `settings.mutate` — the path `dsh-connect-workbuddy` and
  * `dsh-connect-trae` also use.
  */
-export const DOUBAO_SAVE_PATH = '/plugins/dsh-connect-doubao/__save'
+export const DOUBAO_SAVE_PATH = '/plugins/dsh-connect-doubao-macos/__save'
 
 /** Settings field holding the ticked entry ids. */
 export const DOUBAO_ENABLED_MODELS_FIELD = 'enabledModelIds'
@@ -232,7 +232,7 @@ export function clampPercent(value: number | undefined): number {
  * ------------------------------------------------------------------ */
 
 /** Host route that reports the session and runs a browser sign-in on POST. */
-export const DOUBAO_AUTH_PATH = '/plugins/dsh-connect-doubao/auth'
+export const DOUBAO_AUTH_PATH = '/plugins/dsh-connect-doubao-macos/auth'
 
 /**
  * Payload `GET|POST {DOUBAO_AUTH_PATH}` returns. Counts and instants only.
@@ -254,7 +254,7 @@ export interface DoubaoAuthView {
  * ------------------------------------------------------------------ */
 
 /** Host route serving runtime session & token usage statistics. */
-export const DOUBAO_STATS_PATH = '/plugins/dsh-connect-doubao/stats'
+export const DOUBAO_STATS_PATH = '/plugins/dsh-connect-doubao-macos/stats'
 
 export interface DoubaoContextWindowUsageView {
   systemPrompt: number

@@ -77,7 +77,7 @@ function Invoke-Git {
 
 try {
     Write-Host "============================================================" -ForegroundColor Cyan
-    Write-Host " dsh-connect-doubao 发布脚本" -ForegroundColor Cyan
+    Write-Host " dsh-connect-doubao-macos 发布脚本" -ForegroundColor Cyan
     Write-Host " 仓库: $RepoRoot" -ForegroundColor Cyan
     Write-Host "============================================================" -ForegroundColor Cyan
 

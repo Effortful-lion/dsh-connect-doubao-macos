@@ -9,7 +9,7 @@
 import { readFileSync } from 'node:fs'
 import vm from 'node:vm'
 
-const SCRIPT = readFileSync('E:/project/新建文件夹/dsh-connect-doubao/scripts/diagnose-card-in-console.js', 'utf8')
+const SCRIPT = readFileSync('E:/project/新建文件夹/dsh-connect-doubao-macos/scripts/diagnose-card-in-console.js', 'utf8')
 
 function makeEl(tag, opts = {}) {
   const classes = (opts.className ?? '').split(' ').filter(Boolean)
@@ -123,7 +123,7 @@ function runCase(label, { boot, dbqCard, containerRect, containerOverflow }) {
 const rowOk = makeEl('div', { className: 'row', rect: { left: 10, top: 10, width: 800, height: 40, right: 810, bottom: 50 }, text: '豆包连接 额度 标准套餐' })
 const rowZero = makeEl('div', { className: 'row-zero', rect: { left: 0, top: 0, width: 0, height: 0, right: 0, bottom: 0 } })
 
-const bootDoubao = { id: 'dsh-connect-doubao', url: 'u', rev: 'r', inject: ['@deepseek-ai/dsh-client-ui-settings', '@deepseek-ai/dsh-client-locale'] }
+const bootDoubao = { id: 'dsh-connect-doubao-macos', url: 'u', rev: 'r', inject: ['@deepseek-ai/dsh-client-ui-settings', '@deepseek-ai/dsh-client-locale'] }
 
 runCase('A: 不在 boot 清单 + DOM 无卡片', {
   boot: { entries: [{ id: 'other', url: 'x' }] },

@@ -30,7 +30,7 @@
  * copied file on another machine can open it. Nothing here is logged, and
  * nothing leaves except the outbound request's `Cookie:` header.
  *
- * @module dsh-connect-doubao/auth
+ * @module dsh-connect-doubao-macos/auth
  */
 import { readFileSync, writeFileSync, mkdirSync, unlinkSync } from 'node:fs'
 import { homedir } from 'node:os'

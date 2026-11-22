@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * `dsh-connect-doubao login` — one interactive browser sign-in, from the terminal.
+ * `dsh-connect-doubao-macos login` — one interactive browser sign-in, from the terminal.
  *
  * The settings card has the same button, and for a desktop user it is the
  * natural place to click. This exists anyway because a terminal sign-in is

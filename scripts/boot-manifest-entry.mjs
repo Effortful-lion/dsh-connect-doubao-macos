@@ -29,7 +29,7 @@ console.log(`top-level keys: ${Object.keys(boot).join(', ')}`)
 
 const pick = id => entries.find(e => e.id === id)
 
-for (const id of ['dsh-connect-doubao', 'dsh-connect-workbuddy', 'dsh-connect-trae']) {
+for (const id of ['dsh-connect-doubao-macos', 'dsh-connect-workbuddy', 'dsh-connect-trae']) {
   const e = pick(id)
   console.log(`\n=== ${id} ===`)
   if (e === undefined) {
@@ -46,7 +46,7 @@ console.log(`\nentries injecting @deepseek-ai/dsh-client-ui-settings: ${provider
 for (const p of providers.slice(0, 8)) console.log(`  ${p.id}  immediately=${p.immediately ?? false}`)
 
 console.log('\n=== position of doubao vs workbuddy in the manifest ===')
-const di = entries.findIndex(e => e.id === 'dsh-connect-doubao')
+const di = entries.findIndex(e => e.id === 'dsh-connect-doubao-macos')
 const wi = entries.findIndex(e => e.id === 'dsh-connect-workbuddy')
 console.log(`  doubao    index=${di} of ${entries.length}`)
 console.log(`  workbuddy index=${wi} of ${entries.length}`)

@@ -42,7 +42,7 @@
  *    disk in the clear.
  *  - Nothing here logs a secret. Errors name the failure, not the payload.
  *
- * @module dsh-connect-doubao/seal
+ * @module dsh-connect-doubao-macos/seal
  */
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto'
 import { spawnSync } from 'node:child_process'

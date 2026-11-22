@@ -24,7 +24,7 @@ import {
   useObservedTriggerModel,
 } from './DoubaoCatalogStore.ts'
 
-export const STYLE_ELEMENT_ID = 'dsh-connect-doubao-styles'
+export const STYLE_ELEMENT_ID = 'dsh-connect-doubao-macos-styles'
 
 /** Ensure plugin CSS is present in `<head>` even before Settings is opened. */
 export function ensureDoubaoStyles(): void {

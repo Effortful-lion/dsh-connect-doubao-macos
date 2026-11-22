@@ -27,7 +27,7 @@
  * `doubao-auth.ts`, which seals them with DPAPI before anything touches disk.
  * Nothing here logs a value.
  *
- * @module dsh-connect-doubao/auth-browser
+ * @module dsh-connect-doubao-macos/auth-browser
  */
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process'
 import { existsSync, mkdirSync } from 'node:fs'

@@ -86,7 +86,7 @@ if (loadCall === null) {
 console.log(`loader called with id="${loadCall.id}"`)
 console.log(`factory is a function: ${typeof loadCall.factory === 'function'}`)
 
-if (loadCall.id !== 'dsh-connect-doubao') {
+if (loadCall.id !== 'dsh-connect-doubao-macos') {
   console.log(`FAILED: wrong plugin id "${loadCall.id}"`)
   process.exit(1)
 }

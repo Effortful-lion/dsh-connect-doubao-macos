@@ -17,7 +17,7 @@
 import { readFileSync } from 'node:fs'
 import vm from 'node:vm'
 
-const BUNDLE = 'E:/project/新建文件夹/dsh-connect-doubao/lib/client.js'
+const BUNDLE = 'E:/project/新建文件夹/dsh-connect-doubao-macos/lib/client.js'
 const source = readFileSync(BUNDLE, 'utf8')
 
 const reactStub = {
@@ -106,7 +106,7 @@ const a = run('1. configForms ABSENT (current behaviour)', { configForms: undefi
 
 // 2. present, namespaces include our entry
 const forms2 = {
-  describe: () => ({ getSnapshot: () => ({ view: { namespaces: [{ ns: 'dsh-connect-doubao' }] } }) }),
+  describe: () => ({ getSnapshot: () => ({ view: { namespaces: [{ ns: 'dsh-connect-doubao-macos' }] } }) }),
   get: () => ({
     getSnapshot: () => ({ status: 'ok', value: { enabledModelIds: ['doubao-seed'] }, writable: true }),
     subscribe: () => () => {},

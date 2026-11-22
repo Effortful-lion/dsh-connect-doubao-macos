@@ -11,7 +11,7 @@
  * `ConfigEditor.entries()` keeps the row, `describe()` filters it out, and
  * `mutate()` fails with
  *
- *   No configurable plugin entry "dsh-connect-doubao"
+ *   No configurable plugin entry "dsh-connect-doubao-macos"
  *
  * which the card surfaced as `保存失败：namespace … missing from describe()`.
  * The observable consequence is that EVERY settings write for this plugin has
@@ -27,7 +27,7 @@
  * file is the only place a write can land. A host config that disagrees is
  * ignored on purpose — trusting it would resurrect the silent-revert bug.
  *
- * @module dsh-connect-doubao/store
+ * @module dsh-connect-doubao-macos/store
  */
 import { readFileSync, renameSync, writeFileSync, unlinkSync } from 'node:fs'
 import { mkdirSync } from 'node:fs'

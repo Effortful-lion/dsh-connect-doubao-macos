@@ -2,7 +2,7 @@
 // resolution scope, to see the exact failure the loader hits.
 import { pathToFileURL } from 'node:url'
 
-const PLUGIN = pathToFileURL('C:/Users/35498/.dsh/profiles/web/node_modules/dsh-connect-doubao/lib/index.js').href
+const PLUGIN = pathToFileURL('C:/Users/35498/.dsh/profiles/web/node_modules/dsh-connect-doubao-macos/lib/index.js').href
 console.log(`electron ${process.versions.electron ?? '(none)'} node ${process.versions.node}`)
 console.log(`loading ${PLUGIN}`)
 

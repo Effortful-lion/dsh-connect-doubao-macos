@@ -31,7 +31,7 @@ import { join } from 'node:path'
  *   入站加固层的做法（loopback 绑定、Host/Origin 校验、常量时间 bearer 比对、
  *   JSON content-type 强制、body 上限）由该项目确立，本文件原样复用其安全策略。
  *
- * @module dsh-connect-doubao/shim
+ * @module dsh-connect-doubao-macos/shim
  */
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
 import { randomBytes, timingSafeEqual } from 'node:crypto'

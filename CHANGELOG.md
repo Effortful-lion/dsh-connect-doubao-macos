@@ -4,6 +4,20 @@
 
 ---
 
+## 0.9.0-macos.1 — 2026-11-22
+
+> 破坏性改名：包名、插件 ID、CLI 命令与 Web 路由统一改为 `dsh-connect-doubao-macos`，以独立身份发布到 npm 与 GitHub。
+
+### 变更
+
+- npm 包名改为 `dsh-connect-doubao-macos`（原 `dsh-connect-doubao` 属上游作者，无法同名发布）。
+- 插件 ID、`cordis.patch.yml` 条目、client 入口与命名空间、Web 路由 `/plugins/dsh-connect-doubao-macos/*` 全部改用新名。
+- CLI 命令改名为 `dsh-connect-doubao-macos` / `-probe` / `-doctor` / `-login`。
+- 持久标识保持旧值以确保跨升级兼容：钥匙串 service、`.key` / `.settings.json` 路径不变；已有登录态与设置继续可用。
+- 仓库元数据指向 `Effortful-lion/dsh-connect-doubao-macos`，保留对上游 MIT 项目的署名。
+
+---
+
 ## 0.8.1-macos.1 — 2026-11-22
 
 > macOS 移植版。协议实现未改，只把四块 Windows 专有逻辑做成平台分支。

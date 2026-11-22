@@ -1,6 +1,6 @@
 import type { UserConfig } from 'tsdown'
 
-const PLUGIN_ID = 'dsh-connect-doubao'
+const PLUGIN_ID = 'dsh-connect-doubao-macos'
 
 /**
  * Modules the browser half must NOT bundle.
@@ -56,7 +56,7 @@ const CLIENT_EXTERNALS = [
  * plugin's client entry, so an ESM bundle throws at evaluation:
  *
  *   Uncaught SyntaxError: Cannot use import statement outside a module
- *     at dsh-app://app/plugins/dsh-connect-doubao/client.js:1
+ *     at dsh-app://app/plugins/dsh-connect-doubao-macos/client.js:1
  *
  * which fails the entry and takes the whole web boot down with it
  * (`web boot: 1 entry did not activate`). The banner/footer/intro trio below is

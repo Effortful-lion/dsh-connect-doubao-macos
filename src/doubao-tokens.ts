@@ -21,7 +21,7 @@
  *   3. Server-side `conversation_id` continuations surface the already-uploaded
  *      transcript prefix honestly as `prompt_tokens_details.cached_tokens`.
  *
- * @module dsh-connect-doubao/tokens
+ * @module dsh-connect-doubao-macos/tokens
  */
 
 export interface TokenizableToolCall {
