@@ -55,11 +55,11 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Wahwayhale/dsh-connect-doubao.git"
+    "url": "git+https://github.com/Effortful-lion/dsh-connect-doubao-macos.git"
   },
-  "homepage": "https://github.com/Wahwayhale/dsh-connect-doubao#readme",
+  "homepage": "https://github.com/Effortful-lion/dsh-connect-doubao-macos#readme",
   "bugs": {
-    "url": "https://github.com/Wahwayhale/dsh-connect-doubao/issues"
+    "url": "https://github.com/Effortful-lion/dsh-connect-doubao-macos/issues"
   },
   "dsh": {
     "bundle": {
