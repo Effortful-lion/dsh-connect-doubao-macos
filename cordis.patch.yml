@@ -1,0 +1,7 @@
+# Register the Doubao provider without changing the profile's default model.
+# The plugin signs in once through a throwaway Chromium window (the cookies are
+# captured over CDP and sealed with the OS keystore); it never reads the running
+# desktop app's cookie jar.
+- insert:
+    - id: dsh-connect-doubao
+      name: dsh-connect-doubao
