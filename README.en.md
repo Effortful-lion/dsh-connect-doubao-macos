@@ -4,8 +4,14 @@
 > **「工作任务」 (task-mode) models** (2.1 Lite / 2.1 Pro / Auto, which spend the paid
 > membership quota), **Seedream image generation**, plus a **read-only** quota panel
 > (5-hour window / weekly window / activity grant, each with a reset countdown).
-> There is exactly one way in: **one browser QR sign-in**. Windows x64 only — the
-> session is sealed locally with Windows DPAPI.
+> There is exactly one way in: **one browser QR sign-in**. **Windows x64 and macOS** —
+> the session is sealed locally by the OS keystore: DPAPI on Windows, and a keychain-held
+> AES-256-GCM key on macOS.
+
+> **This repository is the macOS port** of
+> [Wahwayhale/dsh-connect-doubao](https://github.com/Wahwayhale/dsh-connect-doubao) (MIT).
+> The protocol layer is unchanged; only credential sealing, Chromium discovery and the
+> Doubao data-directory probe became platform-aware. See [docs/macos-port.md](docs/macos-port.md).
 
 [![npm version](https://img.shields.io/npm/v/dsh-connect-doubao.svg)](https://www.npmjs.com/package/dsh-connect-doubao)
 [![license](https://img.shields.io/npm/l/dsh-connect-doubao.svg)](./LICENSE)
@@ -29,7 +35,7 @@ human; everything after it is plain HTTP.
 | Requirement | Notes |
 | --- | --- |
 | **One QR sign-in** | Otherwise the card reports "not signed in" and the provider is unavailable |
-| **Windows** | Sealing relies on Windows DPAPI. **macOS / Linux are not supported** |
+| **Windows or macOS** | Sealing uses the OS keystore (DPAPI / login keychain). **Linux is not supported** |
 | Chrome or Edge installed | That window IS the sign-in surface; the default install path is enough |
 | Some subscription quota | A free account connects too, but the quota is small |
 
@@ -229,8 +235,8 @@ plugin marketplace and what keeps runtime types consistent.
 
 | Platform | Status |
 | --- | --- |
-| **Windows x64** | ✅ **verified on real hardware** |
-| macOS | ❌ unsupported (DPAPI is Windows-only) |
+| **Windows x64** | ✅ verified upstream on real hardware |
+| **macOS (arm64 / x64)** | ✅ verified in this port: model discovery, provider assembly, `doctor`; sealing via the login keychain |
 | Linux | ❌ unsupported (same) |
 
 **Session** — one source only (`src/doubao-auth.ts` + `src/doubao-auth-browser.ts`):

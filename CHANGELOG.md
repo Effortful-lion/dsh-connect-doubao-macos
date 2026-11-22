@@ -4,6 +4,25 @@
 
 ---
 
+## 0.8.1-macos.1 — 2026-11-22
+
+> macOS 移植版。协议实现未改，只把四块 Windows 专有逻辑做成平台分支。
+
+### 新增
+
+- macOS 凭据密封：登录钥匙串里的 32 字节密钥 + AES-256-GCM，密文带 `keyId` 校验；钥匙串不可用时回落 0600 密钥文件，`doctor` / `login` 会如实报告用的是哪一种。
+- `dsh-connect-doubao login` 子命令：终端里完成那次扫码，不经过设置卡片。
+- macOS 浏览器探测：`Google Chrome` / `Chrome Beta` / `Canary` / `Microsoft Edge` / `Chromium` / `Brave`，可执行名从 bundle 的 `Info.plist` 读；`DSH_DOUBAO_BROWSER` 可覆盖。
+- macOS 数据目录探测：`~/Library/Application Support/Doubao`、`ps` 读 `--user-data-dir`、只认名字带 doubao 的限时扫描。
+
+### 变更
+
+- 凭据文件从 `doubao-credentials-browser.dpapi` 改为 `.sealed`，旧文件仍只读兼容。
+- `@earendil-works/pi-ai` peer 范围放宽到 `>=0.85.0 <2.0.0`（宿主 0.2.2-rc.5 带 1.3.0）。
+- `general_task_param.client_option.os` 在 macOS 上报 `Mac`。
+
+---
+
 ## 0.8.0 — 2026-11-21
 
 > 这一版让「工作任务」模型真正能用 DSH 的工作区工具。此前该模式只要请求里带工具就直接报错退出；现在插件接手了它的本地通道，把真实文件操作转交给 DSH 执行。
