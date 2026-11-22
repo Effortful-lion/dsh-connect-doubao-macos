@@ -22,7 +22,7 @@
     "dsh-connect-doubao-macos": "lib/bin.js",
     "dsh-connect-doubao-macos-probe": "lib/cli-probe.js",
     "dsh-connect-doubao-macos-doctor": "lib/cli-doctor.js",
-    "dsh-connect-doubao-macos-login": "lib/cli-login.js"
+    "dsh-connect-doubao-macos-login": "lib/login.js"
   },
   "exports": {
     ".": {
