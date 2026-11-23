@@ -27,7 +27,7 @@
  * allowance; an account that still reports the old types maps them as before,
  * and one that reports neither simply has no such row.
  */
-import { loadDoubaoCredentials } from './doubao-auth.ts'
+import { loadDoubaoCredentials, type DoubaoCredentials } from './doubao-auth.ts'
 import { buildHeaders, buildQueryUrl, QUOTA_ENDPOINT } from './doubao-upstream.ts'
 
 /** Quota results are cached briefly so a chatty session does not hammer the API. */
@@ -250,42 +250,84 @@ export function evaluateQuotaExhausted(data: RawQuotaData | undefined): boolean 
   return flags.length > 0 && flags.every(Boolean)
 }
 
-export async function fetchQuota(options: { force?: boolean } = {}): Promise<DoubaoQuota> {
+const QUOTA_REQUEST_TIMEOUT_MS = 15_000
+
+function combineSignals(a: AbortSignal | undefined, b: AbortSignal | undefined): AbortSignal | undefined {
+  if (a === undefined) return b
+  if (b === undefined) return a
+  const anyFn = (AbortSignal as { any?: (signals: AbortSignal[]) => AbortSignal }).any
+  return typeof anyFn === 'function' ? anyFn([a, b]) : a
+}
+
+export async function fetchQuota(
+  options: { force?: boolean; credentials?: DoubaoCredentials; signal?: AbortSignal } = {},
+): Promise<DoubaoQuota> {
   const now = Date.now()
-  if (!options.force && cached && now - cached.fetchedAt < QUOTA_TTL_MS) {
+  const useCache = options.credentials === undefined
+  if (useCache && !options.force && cached && now - cached.fetchedAt < QUOTA_TTL_MS) {
     return cached
   }
-  if (!options.force && cachedFailure !== undefined && now - cachedFailureAt < QUOTA_FAILURE_TTL_MS) {
+  if (useCache && !options.force && cachedFailure !== undefined && now - cachedFailureAt < QUOTA_FAILURE_TTL_MS) {
     return cachedFailure
   }
+  const fail = (quota: DoubaoQuota): DoubaoQuota => (useCache ? rememberFailure(quota) : quota)
 
-  const credentials = loadDoubaoCredentials()
+  const credentials = options.credentials ?? loadDoubaoCredentials()
   if (!credentials.ok) {
-    return rememberFailure({
+    return fail({
       exhausted: false,
       windows: [],
       fetchedAt: now,
-      error: credentials.reason ?? 'Doubao credentials unavailable.',
+      error: credentials.reason ?? '还没有浏览器登录态。请在豆包卡片里点「重新登录」扫码一次。',
     })
   }
 
   try {
+    const timeoutSignal = typeof AbortSignal.timeout === 'function'
+      ? AbortSignal.timeout(QUOTA_REQUEST_TIMEOUT_MS)
+      : undefined
+    const signal = combineSignals(options.signal, timeoutSignal)
     const response = await fetch(buildQueryUrl(QUOTA_ENDPOINT, credentials.pairs.get('msToken')), {
       method: 'POST',
       headers: buildHeaders(credentials, { 'content-type': 'application/json' }),
       body: JSON.stringify({ product_line: 'membership' }),
+      ...(signal === undefined ? {} : { signal }),
     })
     if (!response.ok) {
-      return rememberFailure({ exhausted: false, windows: [], fetchedAt: now, error: `HTTP ${response.status}` })
+      const error = response.status === 401 || response.status === 403
+        ? `HTTP ${response.status} (session rejected)`
+        : `HTTP ${response.status}`
+      return fail({ exhausted: false, windows: [], fetchedAt: now, error })
     }
-    const payload = (await response.json()) as { data?: RawQuotaData }
+    const payload = (await response.json()) as {
+      code?: unknown
+      msg?: unknown
+      message?: unknown
+      data?: RawQuotaData | null
+    }
+    if (typeof payload.code === 'number' && payload.code !== 0) {
+      const msg = typeof payload.msg === 'string' && payload.msg !== ''
+        ? payload.msg
+        : typeof payload.message === 'string'
+          ? payload.message
+          : ''
+      const error = payload.code === 710012001
+        ? `Doubao session rejected (710012001)${msg ? `: ${msg}` : ''}`
+        : payload.code === 710022004
+          ? `Doubao risk challenge (710022004)${msg ? `: ${msg}` : ''}`
+          : `Doubao quota error ${payload.code}${msg ? `: ${msg}` : ''}`
+      return fail({ exhausted: false, windows: [], fetchedAt: now, error })
+    }
+    if (payload.data === undefined || payload.data === null || typeof payload.data !== 'object') {
+      return fail({ exhausted: false, windows: [], fetchedAt: now, error: 'Doubao quota response missing data' })
+    }
 
     // Two sections, one list: the regular windows and the promotional grants
     // that Doubao shows above them ("活动赠送额度"). Reading only the first
     // section hid the grant that was actually being consumed.
     const sections = [
-      payload.data?.window_limit_section,
-      payload.data?.incentive_quota_section,
+      payload.data.window_limit_section,
+      payload.data.incentive_quota_section,
     ]
     const windows: QuotaWindow[] = []
     for (const section of sections) {
@@ -302,17 +344,19 @@ export async function fetchQuota(options: { force?: boolean } = {}): Promise<Dou
       windows,
       fetchedAt: now,
     }
-    const plan = payload.data?.current_subscription?.display?.short_name
+    const plan = payload.data.current_subscription?.display?.short_name
     if (plan) quota.plan = plan
-    if (payload.data?.member_info?.hasActiveSubscription !== undefined) {
+    if (payload.data.member_info?.hasActiveSubscription !== undefined) {
       quota.planActive = payload.data.member_info.hasActiveSubscription
     }
 
-    cached = quota
-    cachedFailure = undefined
+    if (useCache) {
+      cached = quota
+      cachedFailure = undefined
+    }
     return quota
   } catch (error) {
-    return rememberFailure({ exhausted: false, windows: [], fetchedAt: now, error: (error as Error).message })
+    return fail({ exhausted: false, windows: [], fetchedAt: now, error: (error as Error).message })
   }
 }
 

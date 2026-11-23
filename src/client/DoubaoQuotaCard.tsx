@@ -118,31 +118,40 @@ function useCardStyles(): void {
  */
 const WRITE_HEADERS = { 'x-dsh-doubao-write': '1' } as const
 
+async function readQuotaResponse(response: Response): Promise<DoubaoQuotaView> {
+  if (!response.ok) {
+    const detail = await response.json().catch(() => null) as { error?: unknown } | null
+    const message = typeof detail?.error === 'string' && detail.error !== ''
+      ? detail.error
+      : `HTTP ${String(response.status)}`
+    throw new Error(message)
+  }
+  return (await response.json()) as DoubaoQuotaView
+}
+
 /**
- * GET the quota view. Never throws: every failure becomes `undefined`, which
- * classifies as `unreadable` rather than unmounting the card.
+ * GET the quota view. Throws with the route error message on HTTP/network failure
+ * so the card can distinguish a loading or route error from a DPAPI failure.
  */
-async function fetchQuota(signal: AbortSignal): Promise<DoubaoQuotaView | undefined> {
+async function fetchQuota(signal: AbortSignal): Promise<DoubaoQuotaView> {
   const response = await fetch(DOUBAO_QUOTA_PATH, {
     method: 'GET',
     credentials: 'same-origin',
     signal,
     headers: { accept: 'application/json' },
   })
-  if (!response.ok) return undefined
-  return (await response.json()) as DoubaoQuotaView
+  return readQuotaResponse(response)
 }
 
 /** POST forces a host-side cache bypass. Same error contract as {@link fetchQuota}. */
-async function refreshQuota(signal?: AbortSignal): Promise<DoubaoQuotaView | undefined> {
+async function refreshQuota(signal?: AbortSignal): Promise<DoubaoQuotaView> {
   const response = await fetch(DOUBAO_QUOTA_PATH, {
     method: 'POST',
     credentials: 'same-origin',
     ...(signal === undefined ? {} : { signal }),
     headers: { accept: 'application/json', ...WRITE_HEADERS },
   })
-  if (!response.ok) return undefined
-  return (await response.json()) as DoubaoQuotaView
+  return readQuotaResponse(response)
 }
 
 /**
@@ -318,6 +327,8 @@ export function DoubaoQuotaCard(props: DoubaoCardProps): ReactElement {
   useCardStyles()
 
   const [quota, setQuota] = useState<DoubaoQuotaView | undefined>(undefined)
+  const [quotaLoading, setQuotaLoading] = useState(true)
+  const [quotaFetchError, setQuotaFetchError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [stats, setStats] = useState<DoubaoStatsView | undefined>(undefined)
   const [statsBusy, setStatsBusy] = useState(false)
@@ -399,25 +410,40 @@ export function DoubaoQuotaCard(props: DoubaoCardProps): ReactElement {
     const controller = new AbortController()
     const hidden = (): boolean =>
       typeof document !== 'undefined' && document.visibilityState === 'hidden'
-    // The first read may come from the host's five-minute memo (GET); every
-    // later read forces a fresh one (POST), because a 30-second poll answered
-    // from the memo would never show a change.
-    const load = async (force: boolean): Promise<void> => {
-      const [quotaView, statsView] = await Promise.all([
-        (force ? refreshQuota(controller.signal) : fetchQuota(controller.signal)).catch(() => undefined),
-        fetchStats(controller.signal).catch(() => undefined),
-      ])
-      if (!alive) return
-      setQuota(quotaView)
-      if (statsView !== undefined) setStats(statsView)
+    // Quota and stats are fetched independently so a stalled upstream quota
+    // request never delays local token statistics, and a transient route error
+    // preserves the error text instead of falsifying a DPAPI failure.
+    const loadQuota = async (force: boolean): Promise<void> => {
+      try {
+        const quotaView = await (force ? refreshQuota(controller.signal) : fetchQuota(controller.signal))
+        if (!alive) return
+        setQuota(quotaView)
+        setQuotaFetchError(null)
+      } catch (error: unknown) {
+        if (!alive || controller.signal.aborted) return
+        setQuotaFetchError((error as Error)?.message ?? 'unknown error')
+      } finally {
+        if (alive && !controller.signal.aborted) setQuotaLoading(false)
+      }
     }
-    void load(false)
+    const loadStats = async (): Promise<void> => {
+      const statsView = await fetchStats(controller.signal).catch(() => undefined)
+      if (alive && statsView !== undefined) setStats(statsView)
+    }
+    void loadQuota(false)
+    void loadStats()
     const timer = setInterval(() => {
-      if (!hidden()) void load(true)
+      if (!hidden()) {
+        void loadQuota(true)
+        void loadStats()
+      }
     }, POLL_INTERVAL_MS)
     // Returning to the tab is exactly when the number is most likely stale.
     const onVisible = (): void => {
-      if (!hidden()) void load(true)
+      if (!hidden()) {
+        void loadQuota(true)
+        void loadStats()
+      }
     }
     document.addEventListener('visibilitychange', onVisible)
     return () => {
@@ -431,14 +457,24 @@ export function DoubaoQuotaCard(props: DoubaoCardProps): ReactElement {
   // ---- manual refresh ---------------------------------------------------
   const onRefresh = useCallback(async (): Promise<void> => {
     setBusy(true)
+    setQuotaLoading(true)
+    setQuotaFetchError(null)
     try {
-      const [quotaView, statsView] = await Promise.all([
-        refreshQuota().catch(() => undefined),
-        fetchStats().catch(() => undefined),
+      const [quotaResult, statsResult] = await Promise.allSettled([
+        refreshQuota(),
+        fetchStats(),
       ])
-      setQuota(quotaView)
-      if (statsView !== undefined) setStats(statsView)
+      if (quotaResult.status === 'fulfilled') {
+        setQuota(quotaResult.value)
+        setQuotaFetchError(null)
+      } else {
+        setQuotaFetchError((quotaResult.reason as Error)?.message ?? 'unknown error')
+      }
+      if (statsResult.status === 'fulfilled' && statsResult.value !== undefined) {
+        setStats(statsResult.value)
+      }
     } finally {
+      setQuotaLoading(false)
       setBusy(false)
     }
   }, [])
@@ -654,6 +690,7 @@ export function DoubaoQuotaCard(props: DoubaoCardProps): ReactElement {
    * honest source for "signed in / expires in N days".
    */
   const [auth, setAuth] = useState<DoubaoAuthView | undefined>(undefined)
+  const [authLoading, setAuthLoading] = useState(true)
   const [authBusy, setAuthBusy] = useState(false)
   const [authError, setAuthError] = useState<string | null>(null)
 
@@ -665,8 +702,11 @@ export function DoubaoQuotaCard(props: DoubaoCardProps): ReactElement {
       })
       if (!response.ok) throw new Error(`HTTP ${String(response.status)}`)
       setAuth(await response.json() as DoubaoAuthView)
+      setAuthError(null)
     } catch (error: unknown) {
       setAuthError((error as Error)?.message ?? 'unknown error')
+    } finally {
+      setAuthLoading(false)
     }
   }, [])
 
@@ -714,9 +754,16 @@ export function DoubaoQuotaCard(props: DoubaoCardProps): ReactElement {
   }, [postAuth, onRefresh, t])
 
   // ---- render -----------------------------------------------------------
-  const state: DoubaoAccountState = classifyQuotaView(quota)
+  const state: DoubaoAccountState = classifyQuotaView(quota, {
+    loading: quotaLoading && quota === undefined,
+    auth,
+    routeError: quotaFetchError,
+  })
   const stateText = t(`account.${state}`)
-  const stateTone = state === 'ok' ? '' : state === 'exhausted' || state === 'network' ? ' dbq-bad' : ' dbq-warn'
+  const stateTone = state === 'ok' || state === 'loading'
+    ? ''
+    : state === 'exhausted' || state === 'network' ? ' dbq-bad' : ' dbq-warn'
+  const quotaFailure = quotaFetchError ?? quota?.error ?? null
 
   return (
     <div className="dbq-card">
@@ -805,6 +852,9 @@ export function DoubaoQuotaCard(props: DoubaoCardProps): ReactElement {
             t={t}
             now={now}
           />
+        )}
+        {quotaFailure !== null && quotaFailure !== '' && (
+          <div className="dbq-note dbq-error">{t('quota.fetchFailed', { reason: quotaFailure })}</div>
         )}
         <div className="dbq-actions">
           <button type="button" className="dbq-btn" onClick={() => void onRefresh()} disabled={busy}>
@@ -919,6 +969,9 @@ export function DoubaoQuotaCard(props: DoubaoCardProps): ReactElement {
         {quota?.profile !== undefined && (
           <div className="dbq-profile">{t('account.profile')}: {quota.profile}</div>
         )}
+        {quota === undefined && quotaFetchError !== null && (
+          <div className="dbq-profile">{quotaFetchError}</div>
+        )}
       </div>
 
       {/* ---- session --------------------------------------------- */}
@@ -946,7 +999,7 @@ export function DoubaoQuotaCard(props: DoubaoCardProps): ReactElement {
             type="button"
             className="dbq-btn dbq-primary"
             onClick={() => void relogin()}
-            disabled={!canWrite || authBusy || auth === undefined}
+            disabled={!canWrite || authBusy || authLoading}
           >
             {authBusy ? t('auth.relogining') : t('auth.relogin')}
           </button>

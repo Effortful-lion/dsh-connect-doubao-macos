@@ -34,8 +34,10 @@ export const zh = {
   'quota.usedAmounts': '已用 {used} / {total}',
   'quota.remainingAmount': '剩 {remaining} / {total}',
   'quota.remainingPercent': '剩 {percent}%',
+  'quota.fetchFailed': '额度获取失败：{reason}',
 
   'account.title': '账号状态',
+  'account.loading': '正在读取豆包额度…',
   'account.ok': '已登录',
   'account.signed_out': '未登录：请点下面的「重新登录」扫码一次',
   'account.unreadable': '登录信息读不出来：本机保存的会话无法解密，请重新登录一次',
@@ -145,8 +147,10 @@ export const en: Record<DoubaoCardKey, string> = {
   'quota.usedAmounts': '{used} / {total} used',
   'quota.remainingAmount': '{remaining} of {total} left',
   'quota.remainingPercent': '{percent}% left',
+  'quota.fetchFailed': 'Could not fetch quota: {reason}',
 
   'account.title': 'Account status',
+  'account.loading': 'Checking Doubao quota…',
   'account.ok': 'Signed in',
   'account.signed_out': 'Not signed in: press “Sign in again” and scan the QR code',
   'account.unreadable': 'Sign-in could not be read: the sealed session failed to decrypt. Sign in again',

@@ -99,7 +99,14 @@ export {
   DISCOVERY_TTL_MS,
 } from './doubao-discovery.ts'
 export { createDoubaoAdapter, DOUBAO_STREAM_IDLE_TIMEOUT_MS } from './doubao-adapter.ts'
-export { createDoubaoShim, type DoubaoShim } from './doubao-shim.ts'
+export {
+  createDoubaoShim,
+  buildPrompt,
+  fitPromptToByteBudget,
+  overflowIfOversized,
+  type DoubaoShim,
+} from './doubao-shim.ts'
+export * from './doubao-tools.ts'
 export * from './doubao-tokens.ts'
 export * from './doubao-stats.ts'
 export {

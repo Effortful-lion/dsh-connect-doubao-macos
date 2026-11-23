@@ -12,7 +12,9 @@
  *    400 or an internal bug therefore burned the host's whole retry budget
  *    before failing with the wrong advice.
  */
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { REQUIRED_COOKIE_NAMES, type DoubaoCredentials } from '../src/doubao-auth.ts'
 import {
   classifyDoubaoFailure,
@@ -20,6 +22,7 @@ import {
   isRetryableFailure,
   streamChat,
 } from '../src/doubao-upstream.ts'
+import { errorCodeFor } from '../src/doubao-shim.ts'
 
 const credentials: DoubaoCredentials = {
   ok: true,
@@ -63,7 +66,18 @@ function stubFetch(make: () => Response | Promise<Response>): void {
   vi.stubGlobal('fetch', vi.fn(make))
 }
 
+beforeEach(() => {
+  process.env.DSH_DOUBAO_BROWSER_RELAY = '0'
+  process.env.DSH_DOUBAO_MIN_INTERVAL_MS = '0'
+  process.env.DSH_DOUBAO_RISK_COOLDOWN_MS = '0'
+  process.env.DSH_DOUBAO_RISK_STATE_PATH = join(tmpdir(), 'dsh-doubao-upstream-terminal-no-risk.json')
+})
+
 afterEach(() => {
+  delete process.env.DSH_DOUBAO_BROWSER_RELAY
+  delete process.env.DSH_DOUBAO_MIN_INTERVAL_MS
+  delete process.env.DSH_DOUBAO_RISK_COOLDOWN_MS
+  delete process.env.DSH_DOUBAO_RISK_STATE_PATH
   vi.unstubAllGlobals()
 })
 
@@ -158,6 +172,10 @@ describe('failure classification', () => {
 
   it('never retries something that is not an upstream failure at all', () => {
     expect(isRetryableFailure(new TypeError('x is not a function'))).toBe(false)
+  // A slider challenge must never enter the host's default RATE_LIMIT retry set.
+  expect(errorCodeFor('rate_limited', false)).toBe('RISK_CHALLENGE')
+  expect(errorCodeFor('rate_limited', true)).toBe('RISK_CHALLENGE')
+  expect(errorCodeFor('quota_exhausted', false)).toBe('RATE_LIMIT')
   })
 
   it('reports missing credentials as a dead session', async () => {
