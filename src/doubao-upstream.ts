@@ -19,13 +19,15 @@
  * line, so a generic `data:`-only SSE parser silently drops everything.
  */
 import { randomUUID } from 'node:crypto'
-import { appendFileSync } from 'node:fs'
+import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { appendFile, mkdir, writeFile } from 'node:fs/promises'
 import { hostname, homedir, tmpdir } from 'node:os'
+import { browserRelayChat, browserRelayEnabled } from './doubao-browser-relay.ts'
 import { dirname, isAbsolute, join, relative as relativeTo } from 'node:path'
 import {
   findDoubaoUserDataDir,
   loadDoubaoCredentials,
+  CORE_AUTH_COOKIE_NAMES,
   REQUIRED_COOKIE_NAMES,
   type DoubaoCredentials,
 } from './doubao-auth.ts'
@@ -104,6 +106,42 @@ export const CLIENT_PARAMS = {
   'use-olympus-account': '1',
 } as const
 
+/**
+ * Optional fingerprint captured from the SAME browser profile that produced the
+ * QR-login cookies. This is local configuration, never credentials.
+ *
+ * Browser login and request identity are separate: a web cookie presented with
+ * desktop-only ids, UA and Referer is exactly the mismatch that can trigger
+ * 710022004. The file lets this machine use its own web ids without hard-coding
+ * them into the plugin or changing the login flow.
+ */
+export interface DoubaoBrowserFingerprint {
+  userAgent?: string
+  referer?: string
+  secChUa?: string
+  query?: Record<string, string>
+}
+
+let cachedBrowserFingerprint: DoubaoBrowserFingerprint | null | undefined
+/** Warn at most once per process about a missing web identity. */
+let warnedMissingFingerprint = false
+
+function browserFingerprint(): DoubaoBrowserFingerprint | null {
+  if (cachedBrowserFingerprint !== undefined) return cachedBrowserFingerprint
+  try {
+    const path = join(homedir(), '.dsh', 'doubao-browser-fingerprint.json')
+    const parsed = JSON.parse(readFileSync(path, 'utf8')) as DoubaoBrowserFingerprint
+    cachedBrowserFingerprint = parsed && typeof parsed === 'object' ? parsed : null
+  } catch {
+    cachedBrowserFingerprint = null
+  }
+  return cachedBrowserFingerprint
+}
+
+function clientParam(name: keyof typeof CLIENT_PARAMS): string {
+  return browserFingerprint()?.query?.[name] ?? CLIENT_PARAMS[name]
+}
+
 /** The default Doubao assistant; content routing means the model is chosen server-side. */
 export const DEFAULT_BOT_ID = '7338286299411103781'
 
@@ -111,15 +149,17 @@ export const DEFAULT_BOT_ID = '7338286299411103781'
 export function buildHeaders(
   credentials: DoubaoCredentials,
   extra: Record<string, string> = {},
+  fingerprint: DoubaoBrowserFingerprint | null = browserFingerprint(),
 ): Record<string, string> {
   return {
-    'User-Agent':
+    'User-Agent': fingerprint?.userAgent ?? (
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) ' +
-      `Chrome/147.0.0.0 Safari/537.36 SamanthaDoubao/${DOUBAO_VERSION}`,
-    Referer: 'chrome://doubao-chat/',
+      `Chrome/147.0.0.0 Safari/537.36 SamanthaDoubao/${DOUBAO_VERSION}`
+    ),
+    Referer: fingerprint?.referer ?? 'chrome://doubao-chat/',
     accept: '*/*',
     'accept-language': 'zh-CN,zh;q=0.9',
-    'sec-ch-ua': '"Chromium";v="147", "Not.A/Brand";v="8"',
+    'sec-ch-ua': fingerprint?.secChUa ?? '"Chromium";v="147", "Not.A/Brand";v="8"',
     'sec-ch-ua-mobile': '?0',
     'sec-ch-ua-platform': '"Windows"',
     'sec-fetch-dest': 'empty',
@@ -135,8 +175,15 @@ export function buildHeaders(
   }
 }
 
-export function buildQueryUrl(endpoint: string, msToken?: string): string {
-  const params = new URLSearchParams({ ...CLIENT_PARAMS, web_tab_id: randomUUID() })
+export function buildQueryUrl(
+  endpoint: string,
+  msToken?: string,
+  fingerprint: DoubaoBrowserFingerprint | null = browserFingerprint(),
+): string {
+  // A browser profile supplies the complete non-secret query shape. Do not merge
+  // desktop-only fields into it: aid/web_id/fp/platform must stay one identity.
+  const base = fingerprint?.query ?? CLIENT_PARAMS
+  const params = new URLSearchParams({ ...base, web_tab_id: randomUUID() })
   if (msToken) params.set('msToken', msToken)
   return `${endpoint}?${params.toString()}`
 }
@@ -235,6 +282,14 @@ export interface DoubaoUpstreamErrorMeta {
   truncated?: boolean
   /** Classify as this kind regardless of code/status. */
   kind?: DoubaoErrorKind
+  /**
+   * The plugin refused the turn locally, before any byte reached the network.
+   *
+   * Needed because a local cooldown reuses the upstream risk-control code and
+   * message shape: without this flag a blocked retry looks identical to a fresh
+   * challenge, and recovery logic would try to "rescue" a turn that never ran.
+   */
+  local?: boolean
 }
 
 export class DoubaoUpstreamError extends Error {
@@ -242,6 +297,7 @@ export class DoubaoUpstreamError extends Error {
   readonly transport: boolean
   readonly truncated: boolean
   readonly kindHint: DoubaoErrorKind | undefined
+  readonly local: boolean
 
   constructor(
     message: string,
@@ -255,6 +311,7 @@ export class DoubaoUpstreamError extends Error {
     this.transport = meta.transport === true
     this.truncated = meta.truncated === true
     this.kindHint = meta.kind
+    this.local = meta.local === true
   }
 }
 
@@ -421,8 +478,8 @@ export function buildGeneralTaskParam(
       runtime_type: TASK_RUNTIME_LOCAL_PC,
       device_name: hostname(),
       workspace,
-      local_device_id: CLIENT_PARAMS.device_id,
-      local_app_id: CLIENT_PARAMS.aid,
+      local_device_id: clientParam('device_id'),
+      local_app_id: clientParam('aid'),
       sandbox_auth_type: TASK_SANDBOX_AUTH_ALLOW_ALL,
     },
     agent_task_param_change: {
@@ -1196,12 +1253,14 @@ async function runToolLocalResponder(
 ): Promise<boolean> {
   let localOperationRejected = false
   const msToken = credentials.pairs.get('msToken')
+  // These endpoints belong to the desktop client's task runtime; they keep the
+  // desktop identity even when a web fingerprint is configured for chat.
   const postToolJson = async (endpoint: string, payload: unknown): Promise<Record<string, any> | undefined> => {
-    const url = buildQueryUrl(endpoint, msToken)
+    const url = buildQueryUrl(endpoint, msToken, null)
     const headers = buildHeaders(credentials, {
       'content-type': 'application/json',
       accept: 'application/json, text/plain, */*',
-    })
+    }, null)
     delete headers['last-event-id']
     const res = await fetch(url, {
       method: 'POST',
@@ -1222,7 +1281,7 @@ async function runToolLocalResponder(
       if (seq === 0 || postStreamPolls >= 8) break
       postStreamPolls += 1
     }
-    const msgId = `${uniqueKey}:${CLIENT_PARAMS.device_id}:${CLIENT_PARAMS.aid}:message:${seq}`
+    const msgId = `${uniqueKey}:${clientParam('device_id')}:${clientParam('aid')}:message:${seq}`
     let ack: Record<string, any> | undefined
     try {
       ack = await postToolJson(TOOL_LOCAL_ACK_ENDPOINT, { msg_ids: [msgId] })
@@ -1269,7 +1328,7 @@ async function runToolLocalResponder(
           const outcome = await applyTaskBookkeeping(inputObj)
           try {
             const uploaded = await postToolJson(TOOL_LOCAL_UPLOAD_ENDPOINT, {
-              device_id: CLIENT_PARAMS.device_id,
+              device_id: clientParam('device_id'),
               command_result: { id: cmdCall.id, code: outcome.ok ? 0 : 1, message: outcome.message },
               workspace_apply_response: {
                 request_id: inputObj.request_id,
@@ -1317,7 +1376,7 @@ async function runToolLocalResponder(
         unsupportedLocalTaskResult(inputObj, handoffReason)
         try {
           const uploaded = await postToolJson(TOOL_LOCAL_UPLOAD_ENDPOINT, {
-            device_id: CLIENT_PARAMS.device_id,
+            device_id: clientParam('device_id'),
             command_result: { id: cmdCall.id, code: 1, message: handoffReason },
             workspace_apply_response: {
               request_id: inputObj.request_id,
@@ -1384,7 +1443,7 @@ async function streamOnce(
       { kind: 'session_dead' },
     )
   }
-  const missing = REQUIRED_COOKIE_NAMES.filter((name) => !credentials.pairs.get(name))
+  const missing = CORE_AUTH_COOKIE_NAMES.filter((name) => !credentials.pairs.get(name))
   if (missing.length > 0) {
     throw new DoubaoUpstreamError(
       `Doubao session cookies missing: ${missing.join(', ')}`,
@@ -1395,27 +1454,50 @@ async function streamOnce(
   }
 
   const msToken = credentials.pairs.get('msToken')
-  const url = buildQueryUrl(CHAT_ENDPOINT, msToken)
-  const headers = buildHeaders(credentials, { 'content-type': 'application/json' })
+  const isTask = taskModeEnabled(options)
+  // A captured fingerprint is the identity of the WEB page, and a web session is
+  // what the QR login produced. Task mode is a desktop-client feature: it keeps
+  // its frozen desktop identity so enabling the fingerprint cannot change how a
+  // task turn is routed.
+  const identity = isTask ? null : browserFingerprint()
+  // Non-fatal, but never silent: a browser session presented with the desktop
+  // identity is the mismatch that invites 710022004, and the fix is one command.
+  if (!isTask && identity === null && !warnedMissingFingerprint) {
+    warnedMissingFingerprint = true
+    process.stderr.write('[identity] no web fingerprint; sending with the desktop identity — run: dsh-connect-doubao-doctor --fingerprint\n')
+  }
+  const url = buildQueryUrl(CHAT_ENDPOINT, msToken, identity)
+  const headers = buildHeaders(credentials, { 'content-type': 'application/json' }, identity)
   const bodyObj = buildChatBody(prompt, options)
   const uniqueKey = bodyObj.option.unique_key
   const body = JSON.stringify(bodyObj)
-  const isTask = taskModeEnabled(options)
+  // Image turns and task turns keep their specialized channels. Ordinary chat
+  // can use the official page itself, including its model selection and signing.
+  const useBrowserRelay = !isTask
+    && options.skill === undefined
+    && options.modelKey !== DOUBAO_IMAGE_MODEL_ID
+    && browserRelayEnabled()
 
   let response: Response
   try {
-    response = await fetch(url, {
-      method: 'POST',
-      headers,
-      body,
-      ...(options.signal ? { signal: options.signal } : {}),
-    })
+    response = useBrowserRelay
+      ? await browserRelayChat(prompt, {
+          ...(options.signal ? { signal: options.signal } : {}),
+        })
+      : await fetch(url, {
+          method: 'POST',
+          headers,
+          body,
+          ...(options.signal ? { signal: options.signal } : {}),
+        })
   } catch (error) {
     // A caller abort is not a failure — let the AbortError through untouched so
     // the shim can tell "user cancelled" from "network broke".
     if (options.signal?.aborted) throw error
     throw new DoubaoUpstreamError(
-      `Doubao request did not reach the server: ${(error as Error).message}`,
+      useBrowserRelay
+        ? `官方浏览器转发失败：${(error as Error).message}`
+        : `Doubao request did not reach the server: ${(error as Error).message}`,
       undefined,
       false,
       { transport: true },
@@ -1470,6 +1552,129 @@ async function streamOnce(
 }
 
 /**
+ * Conservative direct-Node request controls.
+ *
+ * These are deliberately NOT official Doubao limits. They exist to stop the
+ * plugin itself from looking like an automation loop: one request at a time, a
+ * quiet gap between attempts, and a persistent circuit breaker after 710022004.
+ */
+const DEFAULT_NODE_INTERVAL_MS = 8_000
+const DEFAULT_RISK_COOLDOWN_MS = 60 * 60 * 1000
+let nodeQueue: Promise<unknown> = Promise.resolve()
+let lastNodeAttemptAt = 0
+
+interface RiskCircuitState {
+  until?: number
+  updatedAt?: string
+}
+
+function envDuration(name: string, fallback: number): number {
+  const raw = process.env[name]
+  if (raw === undefined || raw.trim() === '') return fallback
+  const value = Number(raw)
+  return Number.isFinite(value) && value >= 0 ? value : fallback
+}
+
+function riskStatePath(): string {
+  return process.env.DSH_DOUBAO_RISK_STATE_PATH
+    ?? join(homedir(), '.dsh', 'doubao-risk-circuit.json')
+}
+
+function readRiskState(): RiskCircuitState | undefined {
+  try {
+    return JSON.parse(readFileSync(riskStatePath(), 'utf8')) as RiskCircuitState
+  } catch {
+    return undefined
+  }
+}
+
+function remainingRiskCooldown(): number {
+  const until = readRiskState()?.until
+  return typeof until === 'number' ? Math.max(0, until - Date.now()) : 0
+}
+
+function enforceRiskCircuit(): void {
+  const remaining = remainingRiskCooldown()
+  if (remaining <= 0) return
+  const minutes = Math.max(1, Math.ceil(remaining / 60_000))
+  process.stderr.write(`[circuit] blocked; ${minutes}m remaining\n`)
+  throw new DoubaoUpstreamError(
+    `豆包风控冷却中，约 ${minutes} 分钟后再试。本次没有向上游发送请求。`,
+    CODE_RATE_LIMITED,
+    true,
+    { kind: 'rate_limited', local: true },
+  )
+}
+
+function openRiskCircuit(error: unknown): void {
+  if (!(error instanceof DoubaoUpstreamError) || error.code !== CODE_RATE_LIMITED) return
+  const cooldownMs = envDuration('DSH_DOUBAO_RISK_COOLDOWN_MS', DEFAULT_RISK_COOLDOWN_MS)
+  if (cooldownMs <= 0) return
+  const path = riskStatePath()
+  const until = Date.now() + cooldownMs
+  mkdirSync(dirname(path), { recursive: true })
+  writeFileSync(path, JSON.stringify({ until, updatedAt: new Date().toISOString() }), 'utf8')
+  process.stderr.write(`[circuit] opened for ${Math.ceil(cooldownMs / 60_000)}m after 710022004\n`)
+}
+
+/** Milliseconds left on the local risk cooldown (0 when it is not open). */
+export function riskCircuitRemainingMs(): number {
+  return remainingRiskCooldown()
+}
+
+/** Clear the local cooldown once a human has cleared the challenge upstream. */
+export function clearRiskCircuit(): void {
+  const path = riskStatePath()
+  const state = readRiskState()
+  if (state?.until === undefined || state.until <= 0) return
+  writeFileSync(path, JSON.stringify({ until: 0, updatedAt: new Date().toISOString() }), 'utf8')
+}
+
+function delay(ms: number, signal?: AbortSignal): Promise<void> {
+  if (ms <= 0) return Promise.resolve()
+  return new Promise((resolve, reject) => {
+    const finish = (): void => {
+      if (signal !== undefined) signal.removeEventListener('abort', aborted)
+      resolve()
+    }
+    const timer = setTimeout(finish, ms)
+    const aborted = (): void => {
+      clearTimeout(timer)
+      const error = new Error('The operation was aborted')
+      error.name = 'AbortError'
+      reject(error)
+    }
+    if (signal?.aborted === true) { aborted(); return }
+    signal?.addEventListener('abort', aborted, { once: true })
+  })
+}
+
+async function runNodeCall<T>(call: () => Promise<T>, signal?: AbortSignal): Promise<T> {
+  const execute = async (): Promise<T> => {
+    enforceRiskCircuit()
+    const interval = envDuration('DSH_DOUBAO_MIN_INTERVAL_MS', DEFAULT_NODE_INTERVAL_MS)
+    const waitMs = Math.max(0, lastNodeAttemptAt + interval - Date.now())
+    if (waitMs > 0) {
+      process.stderr.write(`[throttle] waiting ${waitMs}ms before the next Node request\n`)
+      await delay(waitMs, signal)
+    }
+    enforceRiskCircuit()
+    lastNodeAttemptAt = Date.now()
+    try {
+      const result = await call()
+      clearRiskCircuit()
+      return result
+    } catch (error) {
+      openRiskCircuit(error)
+      throw error
+    }
+  }
+  const run = nodeQueue.then(execute, execute)
+  nodeQueue = run.catch(() => {})
+  return run
+}
+
+/**
  * Stream one completion and return the assembled reply.
  *
  * Rejects with `DoubaoUpstreamError` when the server answers with a business
@@ -1506,8 +1711,15 @@ export async function streamChat(
     onEvent: (event) => options.callbacks?.onEvent?.(event),
   }
   const wanted = taskModeEnabled(options)
-  const call = (taskMode: boolean): Promise<DoubaoChatResult> =>
-    streamOnce(prompt, { ...options, callbacks: wrapped, taskMode })
+  const call = (taskMode: boolean): Promise<DoubaoChatResult> => {
+    const execute = (): Promise<DoubaoChatResult> =>
+      streamOnce(prompt, { ...options, callbacks: wrapped, taskMode })
+    const useRelay = !taskMode
+      && options.skill === undefined
+      && options.modelKey !== DOUBAO_IMAGE_MODEL_ID
+      && browserRelayEnabled()
+    return useRelay ? execute() : runNodeCall(execute, options.signal)
+  }
   try {
     return await call(wanted)
   } catch (error) {
@@ -1733,7 +1945,7 @@ function collectTelemetry(payload: unknown, target: DoubaoUpstreamTelemetry): vo
       const rateLimited = code === 710022004 || /rate limit/i.test(message)
       throw new DoubaoUpstreamError(
         rateLimited
-          ? 'Doubao risk control challenged this request (710022004). Slow down and retry later.'
+          ? '豆包请求触发风控（710022004）。请停止重试并等待风控缓解；如果豆包网页出现人机验证，请完成验证。插件无法绕过风控。'
           : `Doubao stream error ${code ?? '?'}: ${message}`,
         code,
         rateLimited,
@@ -1947,7 +2159,7 @@ function stripPromptEcho(raw: string): string {
  */
 export async function chat(
   prompt: string,
-  options: ChatRequestOptions & { signal?: AbortSignal; callbacks?: StreamCallbacks } = {},
+  options: ChatRequestOptions & { signal?: AbortSignal; callbacks?: StreamCallbacks; credentials?: DoubaoCredentials } = {},
 ): Promise<DoubaoChatResult> {
   return streamChat(prompt, options)
 }
@@ -1984,6 +2196,19 @@ export type DoubaoErrorKind =
    * check their Wi-Fi for a problem that is one switch away from solved.
    */
   | 'task_runtime_unavailable'
+  /**
+   * The prompt is larger than Doubao's own request-body ceiling.
+   *
+   * Measured 2026-11-22: the wall is on the UTF-8 BYTES of the message text,
+   * not on tokens and not on characters — 262,144 ASCII characters pass and
+   * 262,145 fail, i.e. exactly 256 KiB. Doubao answers this with 710020202
+   * ("common invalid param"), the same code a dead conversation id produces,
+   * which is why it used to read as an unexplained parameter error.
+   *
+   * Its own class because the fix is the host's, not the user's: compact and
+   * retry. Reported as CONTEXT_WINDOW_EXCEEDED so that path is taken.
+   */
+  | 'context_overflow'
 
 /** The server's business code for "this session is not valid". */
 const CODE_SESSION_DEAD = 710012001
@@ -2006,6 +2231,26 @@ const THINKING_BLOCK_TYPE = 10040
  * client has nothing to register, so the agent has nowhere to run.
  */
 const CODE_TASK_RUNTIME_UNAVAILABLE = 710010702
+/**
+ * The server's business code for "common invalid param".
+ *
+ * Observed on a CONTINUATION turn whose remembered `conversation_id` the
+ * server no longer accepts (the thread expired or was deleted upstream): the id
+ * is the only parameter that differs from a fresh-conversation request, and the
+ * same request then fails identically on every retry.
+ */
+const CODE_INVALID_PARAM = 710020202
+
+/**
+ * Whether the upstream rejected the request parameters outright.
+ *
+ * Callers that were continuing a remembered conversation should drop the id
+ * after this failure — keeping it would repeat the same rejection for the rest
+ * of the session TTL instead of opening a fresh thread.
+ */
+export function isInvalidParamFailure(error: unknown): boolean {
+  return error instanceof DoubaoUpstreamError && error.code === CODE_INVALID_PARAM
+}
 
 /**
  * Map one upstream error onto its class.
@@ -2051,7 +2296,10 @@ export function isRetryableFailure(error: unknown): boolean {
  */
 export const DOUBAO_ERROR_HINTS: Readonly<Record<DoubaoErrorKind, string>> = {
   rate_limited:
-    '豆包触发了风控验证（710022004）。请打开豆包客户端，手动发送一条消息完成滑块验证，然后再回到这里重试。反复重试只会让验证更严格。',
+    '豆包请求触发风控（710022004）—— 这是人机验证（滑块），不是普通限流，插件不会也无法绕过。'
+    + '先对齐网页身份（多数情况就是它引起的）：dsh-connect-doubao-doctor --fingerprint，'
+    + '再 --resume 解除本地冷却；仍被要求验证时用 --verify 打开官方页面人工过滑块；'
+    + '想彻底避开就用 --relay on 让对话请求走真实浏览器。',
   quota_exhausted:
     '豆包额度已用尽。请等待额度窗口重置，或在豆包客户端查看「订阅与额度管理」。',
   session_dead:
@@ -2062,11 +2310,19 @@ export const DOUBAO_ERROR_HINTS: Readonly<Record<DoubaoErrorKind, string>> = {
     '豆包把这个账号路由到了「工作任务」代理，而该任务的执行运行时只存在于豆包客户端进程里，外部客户端接不上。请打开豆包客户端，把输入框上方的开关切回「对话」，然后重试；需要多步执行的话，交给 DSH 自己的工具来做。',
   upstream:
     '豆包返回了错误响应（不是网络问题，重试通常无效）。',
+  context_overflow:
+    '这次请求的内容超过了豆包单次请求上限（256 KiB 的 UTF-8 文本，约 26 万 ASCII 字符）。请压缩上下文或缩短单条消息后重试；DSH 通常会自动压缩并重发。',
 }
 
 /** Build a user-facing message for a Doubao failure. */
 export function describeDoubaoFailure(error: unknown): string {
   if (error instanceof DoubaoUpstreamError) {
+    // The cooldown is OURS, not the server's. Saying "被风控" for a turn that was
+    // never sent sends the user to the Doubao web page for a challenge that does
+    // not exist; the only useful next step is the local reset.
+    if (error.local) {
+      return `${error.message}（如果已经在官方页面完成过人机验证，运行 dsh-connect-doubao-doctor --resume 立即解除本地冷却。）`
+    }
     return `${DOUBAO_ERROR_HINTS[classifyDoubaoFailure(error)]}（${error.message}）`
   }
   // Not an upstream failure at all — a bug here, not a bad connection.

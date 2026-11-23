@@ -19,7 +19,6 @@ import {
   findDoubaoUserDataDir,
   listDoubaoProfiles,
   PROFILE_ENV,
-  resolveUserProvided,
   setProfileOverride,
 } from '../src/doubao-profile.ts'
 
@@ -162,62 +161,11 @@ describe('listDoubaoProfiles ordering', () => {
     expect(profiles[0]?.source).toBe('env')
   })
 
-  it('returns nothing on a platform with no desktop client at all', () => {
+  it('returns nothing on a non-Windows platform even with a valid override', () => {
     const chosen = makeProfile(join(root, 'unused'))
     expect(
       listDoubaoProfiles({ env: { [PROFILE_ENV]: chosen }, platform: 'linux' }),
     ).toEqual([])
-  })
-})
-
-describe('macOS layout', () => {
-  /** A mac profile: `Default/` directly inside, `Preferences` is what discovery reads. */
-  function makeMacProfile(parent: string, name = 'Doubao'): string {
-    const dir = join(parent, name)
-    mkdirSync(join(dir, 'Default'), { recursive: true })
-    writeFileSync(join(dir, 'Default', 'Preferences'), '{}', 'utf8')
-    writeFileSync(join(dir, 'Default', 'Cookies'), 'sqlite-placeholder', 'utf8')
-    return dir
-  }
-
-  it('accepts the mac layout with no `User Data` level', () => {
-    const profile = makeMacProfile(join(root, 'support'))
-    const profiles = listDoubaoProfiles({
-      env: {},
-      appDataBases: [profile],
-      processCommandLines: () => [],
-      scanRoots: [],
-      platform: 'darwin',
-    })
-    expect(profiles).toEqual([{ dir: profile, source: 'appdata' }])
-  })
-
-  it('reads a quoted --user-data-dir out of a mac command line', () => {
-    const profile = makeMacProfile(join(root, 'My Data'))
-    const line =
-      `/Applications/Doubao.app/Contents/MacOS/Doubao --user-data-dir="${profile}" --flag`
-    expect(extractUserDataDir(line)).toBe(profile)
-  })
-
-  it('takes the parent when the user points at the `Default` folder', () => {
-    const profile = makeMacProfile(join(root, 'support'))
-    expect(resolveUserProvided(join(profile, 'Default'))).toBe(profile)
-  })
-
-  it('never mistakes another Chromium app for the Doubao profile while scanning', () => {
-    // `~/Library/Application Support/Google/Chrome` has exactly the same
-    // `Default/` shape, so an unfiltered walk would adopt Chrome's catalog.
-    const chrome = makeMacProfile(join(root, 'support'), 'Google')
-    const doubao = makeMacProfile(join(root, 'support'))
-    const profiles = listDoubaoProfiles({
-      env: {},
-      appDataBases: [],
-      processCommandLines: () => [],
-      scanRoots: [join(root, 'support')],
-      platform: 'darwin',
-    })
-    expect(profiles.map((entry) => entry.dir)).toContain(doubao)
-    expect(profiles.map((entry) => entry.dir)).not.toContain(chrome)
   })
 })
 

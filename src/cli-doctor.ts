@@ -20,12 +20,18 @@
 import {
   loadDoubaoCredentials,
   describeProfileLocation,
+  CORE_AUTH_COOKIE_NAMES,
   REQUIRED_COOKIE_NAMES,
   listDoubaoProfiles,
   PROFILE_ENV,
   credentialSealLabel,
 } from './doubao-auth.ts'
-import { probeAccount, classifyDoubaoFailure, DoubaoUpstreamError } from './doubao-upstream.ts'
+import { probeAccount, clearRiskCircuit, classifyDoubaoFailure, DoubaoUpstreamError } from './doubao-upstream.ts'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { homedir } from 'node:os'
+import { dirname, join } from 'node:path'
+import { browserRelayAvailable, openOfficialChat } from './doubao-browser-relay.ts'
+import { captureBrowserFingerprint, readBrowserFingerprint, writeBrowserFingerprint } from './doubao-auth-browser.ts'
 import { fetchQuota, findWindow, formatDuration, millisUntilReset } from './doubao-quota.ts'
 import { createDoubaoShim } from './doubao-shim.ts'
 import { createDoubaoAdapter } from './doubao-adapter.ts'
@@ -88,10 +94,11 @@ export async function runDoctor(): Promise<DoctorReport> {
     checks.push({ name: 'credentials', status: 'fail', detail: credentials.reason ?? 'unavailable' })
   } else {
     const present = REQUIRED_COOKIE_NAMES.filter((name) => credentials.pairs.get(name))
+    const coreMissing = CORE_AUTH_COOKIE_NAMES.filter((name) => !credentials.pairs.get(name))
     checks.push({
       name: 'credentials',
-      status: present.length === REQUIRED_COOKIE_NAMES.length ? 'ok' : 'fail',
-      detail: `${credentials.pairs.size} cookies in the sealed browser session; ${present.length}/${REQUIRED_COOKIE_NAMES.length} required session cookies present`,
+      status: coreMissing.length === 0 ? 'ok' : 'fail',
+      detail: `${credentials.pairs.size} cookies in the sealed browser session; ${present.length}/${REQUIRED_COOKIE_NAMES.length} session cookies present`,
       // Names and counts only — never values.
       data: {
         source: `browser (sealed: ${credentialSealLabel()})`,
@@ -103,7 +110,37 @@ export async function runDoctor(): Promise<DoctorReport> {
     })
   }
 
-  // ---- 2. account -----------------------------------------------------
+  // ---- 2. identity ----------------------------------------------------
+  // The session is a WEB session (QR login), so the requests must present the
+  // web identity. Without a captured fingerprint the client falls back to the
+  // desktop one — the exact mismatch that invites 710022004.
+  if (!credentials.ok) {
+    checks.push({ name: 'identity', status: 'skip', detail: 'no credentials' })
+  } else {
+    const fingerprint = readBrowserFingerprint()
+    if (fingerprint === undefined) {
+      checks.push({
+        name: 'identity',
+        status: 'fail',
+        detail: '还没有网页身份，直连会以桌面端身份发请求（容易触发 710022004）；运行 dsh-connect-doubao-doctor --fingerprint',
+      })
+    } else if (/SamanthaDoubao/i.test(fingerprint.userAgent)) {
+      checks.push({
+        name: 'identity',
+        status: 'fail',
+        detail: '记录的仍是桌面端身份（UA 带 SamanthaDoubao）；重新运行 dsh-connect-doubao-doctor --fingerprint',
+      })
+    } else {
+      checks.push({
+        name: 'identity',
+        status: 'ok',
+        detail: `网页身份已对齐；aid=${fingerprint.query.aid ?? '?'}，UA 无桌面端后缀`,
+        data: { aid: fingerprint.query.aid ?? null, params: Object.keys(fingerprint.query).length },
+      })
+    }
+  }
+
+  // ---- 3. account -----------------------------------------------------
   if (!credentials.ok) {
     checks.push({ name: 'account', status: 'skip', detail: 'no credentials' })
   } else {
@@ -115,7 +152,7 @@ export async function runDoctor(): Promise<DoctorReport> {
     })
   }
 
-  // ---- 3. provider assembly -------------------------------------------
+  // ---- 4. provider assembly -------------------------------------------
   const needsPiAi = missingPeer('@earendil-works/pi-ai') ||
     missingPeer('@deepseek-ai/dsh-llm-pi-ai') ||
     missingPeer('@deepseek-ai/dsh-llm')
@@ -166,7 +203,7 @@ export async function runDoctor(): Promise<DoctorReport> {
     }
   }
 
-  // ---- 4. quota -------------------------------------------------------
+  // ---- 5. quota -------------------------------------------------------
   if (!credentials.ok) {
     checks.push({ name: 'quota', status: 'skip', detail: 'no credentials' })
   } else {
@@ -261,16 +298,101 @@ function renderText(report: DoctorReport): string {
 /** Error classifier surface, exported so a future UI can reuse it. */
 export { classifyDoubaoFailure, DoubaoUpstreamError }
 
+/**
+ * `--verify` / `--resume` are the human half of the risk-control story.
+ *
+ * The plugin will not and cannot clear a slider CAPTCHA. What it CAN do is put
+ * the official page in front of the user (the same dedicated profile the relay
+ * drives, signed in) and, once that human has cleared the challenge, forget the
+ * local cooldown that was started by the failed turn.
+ */
+/** Where the relay switch lives; the module reads this same file per request. */
+function relayConfigPath(): string {
+  return join(homedir(), '.dsh', 'doubao-browser-relay.json')
+}
+
+/** Merge the switch into the existing config so a port/timeout survives. */
+function writeRelayEnabled(enabled: boolean): void {
+  const path = relayConfigPath()
+  let existing: Record<string, unknown> = {}
+  try {
+    existing = JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>
+  } catch {
+    // First switch: start from an empty object.
+  }
+  mkdirSync(dirname(path), { recursive: true })
+  writeFileSync(path, JSON.stringify({ ...existing, enabled }, null, 2) + '\n', 'utf8')
+}
+
+async function runCli(): Promise<void> {
+  const relayFlag = process.argv.indexOf('--relay')
+  if (relayFlag !== -1) {
+    const mode = process.argv[relayFlag + 1]
+    if (mode !== 'on' && mode !== 'off') {
+      process.stdout.write('用法：dsh-connect-doubao-doctor --relay on|off\n')
+      process.exitCode = 2
+      return
+    }
+    writeRelayEnabled(mode === 'on')
+    if (mode === 'on' && !browserRelayAvailable()) {
+      process.stdout.write(
+        `已写入 ${relayConfigPath()}，但还没找到可用的浏览器配置。\n`
+        + '先运行 dsh-connect-doubao-doctor --verify 打开官方页面完成一次登录，之后对话才会走真实浏览器。\n',
+      )
+      return
+    }
+    process.stdout.write(mode === 'on'
+      ? '已开启：对话请求改由官方页面发出（任务模式与生图仍走插件自己的通道）。\n'
+      : '已关闭：对话请求回到插件直连通道。\n')
+    return
+  }
+  if (process.argv.includes('--fingerprint')) {
+    const captured = await captureBrowserFingerprint({
+      onProgress: (line: string) => process.stdout.write(line + '\n'),
+    })
+    if (!captured.ok || captured.fingerprint === undefined) {
+      process.stderr.write(`抓取失败：${captured.reason ?? '未知原因'}\n`)
+      process.exitCode = 1
+      return
+    }
+    const fingerprint = captured.fingerprint
+    const path = writeBrowserFingerprint(fingerprint)
+    const query = fingerprint.query
+    // Only non-secret identity is echoed; no cookie and no signature.
+    process.stdout.write(
+      `已写入 ${path}\n`
+      + `UA: ${fingerprint.userAgent}\n`
+      + `Referer: ${fingerprint.referer}\n`
+      + `身份: aid=${query.aid ?? '?'} device_platform=${query.device_platform ?? '?'} `
+      + `client_platform=${query.client_platform ?? '?'}（${String(Object.keys(query).length)} 个参数）\n`
+      + '重启宿主后，直连请求会改用这套身份。\n',
+    )
+    return
+  }
+  if (process.argv.includes('--verify')) {
+    const url = await openOfficialChat()
+    process.stdout.write(
+      `已打开官方页面：${url}\n`
+      + '如果页面出现滑块/人机验证，请在这一个人工浏览器里完成它（插件不会绕过）。\n'
+      + '验证完成后运行：dsh-connect-doubao-doctor --resume\n',
+    )
+    return
+  }
+  if (process.argv.includes('--resume')) {
+    clearRiskCircuit()
+    process.stdout.write('已解除插件本地的风控冷却；下一次请求会真正发往豆包。\n')
+    return
+  }
+  const json = process.argv.includes('--json')
+  const report = await runDoctor()
+  process.stdout.write(json ? JSON.stringify(report, null, 2) + '\n' : renderText(report) + '\n')
+  process.exitCode = report.ok ? 0 : 1
+}
+
 if (process.argv[1] && /cli-doctor\.(js|ts|mjs)$/.test(process.argv[1])) {
   process.stdout.setDefaultEncoding('utf8')
-  const json = process.argv.includes('--json')
-  runDoctor()
-    .then((report) => {
-      process.stdout.write(json ? JSON.stringify(report, null, 2) + '\n' : renderText(report) + '\n')
-      process.exitCode = report.ok ? 0 : 1
-    })
-    .catch((error: unknown) => {
-      process.stderr.write(`doctor crashed: ${(error as Error).message}\n`)
-      process.exitCode = 2
-    })
+  runCli().catch((error: unknown) => {
+    process.stderr.write(`doctor crashed: ${(error as Error).message}\n`)
+    process.exitCode = 2
+  })
 }

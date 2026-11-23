@@ -12,7 +12,7 @@
  * 1. 产物不是 CJS（`format: ['esm']`）。桌面外壳用 `<script>` 加载插件客户端，
  *    不加 `type="module"`，于是产物开头的 `import …` 直接抛
  *    `SyntaxError: Cannot use import statement outside a module`。
- *    —— 2026-10-09 事故：dsh-connect-doubao-macos 的客户端产物就是 ESM，
+ *    —— 2026-10-09 事故：dsh-connect-doubao 的客户端产物就是 ESM，
  *    装进 desktop profile 后 DSH 桌面端启动即崩。
  *
  * 2. 外部依赖被打包。产物内联 react-dom 的 CJS 构建，其开头
@@ -120,7 +120,7 @@ describe('the client bundle can actually load in the desktop shell', () => {
   it('is wrapped in the shell module-loader call', () => {
     expect(artifact()).toContain('__ModuleLoader__')
     expect(built).toContain('__ModuleLoader__.load(')
-    expect(built).toContain('id: "dsh-connect-doubao-macos"')
+    expect(built).toContain('id: "dsh-connect-doubao"')
   })
 
   it('defines module/exports and returns them (banner + intro + footer intact)', () => {

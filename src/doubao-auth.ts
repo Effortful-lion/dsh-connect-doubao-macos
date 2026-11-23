@@ -63,6 +63,21 @@ export const CREDENTIAL_TTL_MS = 10 * 60 * 1000
  * Cookie names Doubao's chat backend actually needs for authentication.
  * Verified in M1/M2: this exact set authenticated while the app was closed.
  */
+/**
+ * Core cookie names Doubao actually requires to authenticate an account.
+ *
+ * browserLogin() still waits briefly for the full 9-cookie jar so that
+ * anti-bot and expiry cookies are captured whenever issued, while
+ * loadBrowserCredentials() will not discard an otherwise working session
+ * merely because an auxiliary tracking cookie was blocked or delayed.
+ */
+export const CORE_AUTH_COOKIE_NAMES = [
+  'sessionid',
+  'sessionid_ss',
+  'sid_tt',
+  'uid_tt',
+] as const
+
 export const REQUIRED_COOKIE_NAMES = [
   'sessionid',
   'sessionid_ss',
@@ -135,44 +150,67 @@ export function saveBrowserCredentials(pairs: Map<string, string>): void {
   writeFileSync(path, sealed, { mode: 0o600 })
 }
 
-/** Read the sealed browser session, or `undefined` when absent/unusable. */
-export function loadBrowserCredentials(): DoubaoCredentials | undefined {
+/** Read the sealed browser session with a failure diagnosis when unusable. */
+function readBrowserCredentials():
+  | { ok: true; credentials: DoubaoCredentials }
+  | { ok: false; kind: 'missing' | 'unreadable' | 'incomplete'; reason: string } {
+  let sealed: Buffer | undefined
   for (const path of cachePaths()) {
-    let sealed: Buffer
     try {
       sealed = readFileSync(path)
-    } catch {
-      continue
-    }
-    let json: string
-    try {
-      json = unseal(sealed).toString('utf8')
-    } catch {
-      // Wrong key, wrong platform, or a corrupt file: try the next candidate
-      // instead of reporting a session that cannot actually be opened.
-      continue
-    }
-    try {
-      const parsed = JSON.parse(json) as { header?: unknown; pairs?: unknown }
-      if (typeof parsed.header !== 'string' || !Array.isArray(parsed.pairs)) continue
-      const pairs = new Map<string, string>()
-      for (const entry of parsed.pairs) {
-        if (!Array.isArray(entry) || entry.length !== 2) continue
-        const [name, value] = entry as [unknown, unknown]
-        if (typeof name === 'string' && typeof value === 'string' && name !== '') pairs.set(name, value)
-      }
-      const missing = REQUIRED_COOKIE_NAMES.filter((name) => !pairs.get(name))
-      // A file that opens but lacks a required cookie is a HALF session: the
-      // scan was abandoned mid-flow or the server rotated part of the jar.
-      // Serving it would fail upstream with a message about the account, not
-      // about the login, so treat it as absent and let the card ask for a scan.
-      if (missing.length > 0) continue
-      return { ok: true, header: parsed.header, pairs }
+      break
     } catch {
       continue
     }
   }
-  return undefined
+  if (sealed === undefined) {
+    return {
+      ok: false,
+      kind: 'missing',
+      reason: '还没有浏览器登录态。请在豆包卡片里点「重新登录」扫码一次。',
+    }
+  }
+
+  let json: string
+  try {
+    json = unseal(sealed).toString('utf8')
+  } catch (error: unknown) {
+    return {
+      ok: false,
+      kind: 'unreadable',
+      reason: `本机保存的会话无法解密（${(error as Error)?.message ?? String(error)}），请重新登录一次。`,
+    }
+  }
+
+  try {
+    const parsed = JSON.parse(json) as { header?: unknown; pairs?: unknown }
+    if (typeof parsed.header !== 'string' || !Array.isArray(parsed.pairs)) {
+      return { ok: false, kind: 'unreadable', reason: '本机保存的会话格式损坏（无法解密），请重新登录一次。' }
+    }
+    const pairs = new Map<string, string>()
+    for (const entry of parsed.pairs) {
+      if (!Array.isArray(entry) || entry.length !== 2) continue
+      const [name, value] = entry as [unknown, unknown]
+      if (typeof name === 'string' && typeof value === 'string' && name !== '') pairs.set(name, value)
+    }
+    const missingCore = CORE_AUTH_COOKIE_NAMES.filter((name) => !pairs.get(name))
+    if (missingCore.length > 0) {
+      return {
+        ok: false,
+        kind: 'incomplete',
+        reason: `登录态不完整（缺少 ${missingCore.join(', ')}），请在豆包卡片里点「重新登录」重新扫码。`,
+      }
+    }
+    return { ok: true, credentials: { ok: true, header: parsed.header, pairs } }
+  } catch {
+    return { ok: false, kind: 'unreadable', reason: '本机保存的会话格式损坏（无法解密），请重新登录一次。' }
+  }
+}
+
+/** Read the sealed browser session, or `undefined` when absent/unusable. */
+export function loadBrowserCredentials(): DoubaoCredentials | undefined {
+  const result = readBrowserCredentials()
+  return result.ok ? result.credentials : undefined
 }
 
 /** True when a sealed browser session exists on disk. */
@@ -243,15 +281,19 @@ export function loadDoubaoCredentials(options: { force?: boolean } = {}): Doubao
     return cached.credentials
   }
 
-  const sealed = loadBrowserCredentials()
-  const credentials: DoubaoCredentials = sealed ?? {
+  const result = readBrowserCredentials()
+  const credentials: DoubaoCredentials = result.ok ? result.credentials : {
     ok: false,
-    reason: '还没有浏览器登录态。请在豆包卡片里点「重新登录」扫码一次。',
+    reason: result.reason,
     header: '',
     pairs: new Map(),
   }
 
-  cached = { at: now, credentials }
+  // Missing-file reads are cheap and a CLI login may have just succeeded;
+  // never cache the "not signed in" state, so a fresh scan is picked up at once.
+  if (result.ok || result.kind !== 'missing') {
+    cached = { at: now, credentials }
+  }
   return credentials
 }
 

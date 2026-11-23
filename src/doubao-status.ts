@@ -23,6 +23,7 @@ import {
 import { browserLogin } from './doubao-auth-browser.ts'
 import { doubaoCatalogEntries, type DoubaoModelInfo } from './doubao-catalog.ts'
 import { invalidateDiscovery } from './doubao-discovery.ts'
+import { invalidateRenewals } from './doubao-upstream.ts'
 import type { DoubaoCatalogEntry } from './doubao-catalog.ts'
 import type { DoubaoStatsView } from './doubao-stats.ts'
 
@@ -222,13 +223,26 @@ function remainingTotal(quota: { windows: QuotaWindow[] }): number | null {
   return saw ? total : null
 }
 
+const PROFILE_LOCATION_TTL_MS = 5 * 60 * 1000
+let cachedProfile: { at: number; value: string } | undefined
+
+function cachedProfileLocation(): string {
+  const now = Date.now()
+  if (cachedProfile !== undefined && now - cachedProfile.at < PROFILE_LOCATION_TTL_MS) {
+    return cachedProfile.value
+  }
+  const value = describeProfileLocation()
+  cachedProfile = { at: now, value }
+  return value
+}
+
 export async function doubaoQuotaView(options: { force?: boolean } = {}): Promise<DoubaoQuotaView> {
   const quota = await fetchQuota(options.force === true ? { force: true } : {})
   const fiveHour = findWindow(quota, 'five_hour')
   const weekly = findWindow(quota, 'weekly')
   return {
     ok: quota.error === undefined,
-    profile: describeProfileLocation(),
+    profile: cachedProfileLocation(),
     plan: quota.plan ?? null,
     exhausted: quota.exhausted,
     windows: {
@@ -604,6 +618,7 @@ export function registerDoubaoAuthRoute(
         // The scan may have landed on a different account than the rejected
         // session it replaces, so every derived read is stale the moment it lands.
         invalidateCredentialCache()
+        invalidateRenewals()
         invalidateQuotaCache()
         invalidateDiscovery()
         deps.onSignedIn?.()

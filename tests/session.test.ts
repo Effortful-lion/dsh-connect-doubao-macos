@@ -11,17 +11,87 @@
 import { describe, expect, it } from 'vitest'
 import {
   ConversationStore,
+  SESSION_MAX_ENTRIES,
+  SESSION_TTL_MS,
   continuationDelta,
   isContinuation,
   sessionKeyOf,
   type SessionState,
 } from '../src/doubao-session.ts'
+import { DoubaoUpstreamError, classifyDoubaoFailure, isInvalidParamFailure } from '../src/doubao-upstream.ts'
+import { buildPrompt, fitPromptToByteBudget, overflowIfOversized } from '../src/doubao-shim.ts'
 
 const first = { role: 'user', content: '第一句话' }
 
 function state(messageCount = 1, conversationId = 'conv-1'): SessionState {
   return { conversationId, messageCount, at: Date.now() }
 }
+
+describe('710020202 — a continuation the server rejects', () => {
+  it('is recognised as an invalid-param failure', () => {
+    expect(isInvalidParamFailure(new DoubaoUpstreamError('common invalid param', 710020202))).toBe(true)
+    expect(isInvalidParamFailure(new DoubaoUpstreamError('other', 710010702))).toBe(false)
+    expect(isInvalidParamFailure(new Error('not upstream'))).toBe(false)
+  })
+
+  it('relabels an oversized prompt as a context overflow, not a param error', () => {
+    // Same server code, two causes: only the body size tells them apart.
+    // 256 KiB is the measured wall — 262,144 ASCII chars pass, 262,145 fail.
+    const over = 'A'.repeat(262_145)
+    const under = 'A'.repeat(262_144)
+    const relabel = overflowIfOversized(new DoubaoUpstreamError('common invalid param', 710020202), over)
+    expect(classifyDoubaoFailure(relabel as DoubaoUpstreamError)).toBe('context_overflow')
+    expect(relabel).toBeInstanceOf(DoubaoUpstreamError)
+    // At or below the ceiling the id explanation stands: the error is passed through.
+    expect(overflowIfOversized(new DoubaoUpstreamError('common invalid param', 710020202), under))
+      .toBeInstanceOf(DoubaoUpstreamError)
+    // A different failure is never relabelled.
+    expect(isInvalidParamFailure(overflowIfOversized(new DoubaoUpstreamError('x', 710010702), over))).toBe(false)
+  })
+
+  it('fits a transcript under the byte ceiling by dropping the oldest turns', () => {
+    // 559 KB of transcript + a 139 KB tool contract is the shape that kept
+    // failing: well under the token threshold, far over the 256 KiB wall.
+    const turns = Array.from({ length: 200 }, (_, i) => ({
+      role: i % 2 === 0 ? 'user' : 'assistant',
+      content: `第${i}轮：` + '这是一段较长的历史内容。'.repeat(70),
+    }))
+    const contract = 'x'.repeat(139_000)
+    const fit = fitPromptToByteBudget(turns, contract)
+    const bytes = Buffer.byteLength(buildPrompt(fit.messages), 'utf8') + Buffer.byteLength(contract, 'utf8')
+    expect(bytes).toBeLessThanOrEqual(220_000)
+    expect(fit.dropped).toBeGreaterThan(0)
+    // The turn being answered is never dropped.
+    expect(fit.messages[fit.messages.length - 1]!.content).toContain('第199轮')
+  })
+
+  it('leaves a transcript that already fits untouched', () => {
+    const turns = [{ role: 'user', content: '你好' }]
+    const fit = fitPromptToByteBudget(turns, '')
+    expect(fit.dropped).toBe(0)
+    expect(fit.truncated).toBe(false)
+    expect(fit.messages).toHaveLength(1)
+  })
+
+  it('keeps a thread far longer than the old 30 minutes', () => {
+    // A dropped id costs a full transcript re-upload on the next turn, so
+    // expiry only has to bound staleness — the shim re-issues a rejected id.
+    expect(SESSION_TTL_MS).toBeGreaterThanOrEqual(7 * 24 * 60 * 60 * 1000)
+    expect(SESSION_MAX_ENTRIES).toBeGreaterThanOrEqual(256)
+  })
+
+  it('evicts least-recently-used, not first-inserted', () => {
+    const store = new ConversationStore(SESSION_TTL_MS, 2)
+    store.remember('a', 'conv-a', 1)
+    store.remember('b', 'conv-b', 1)
+    // Touch 'a' so it is the most recent; 'b' is now the oldest.
+    store.remember('a', 'conv-a', 2)
+    store.remember('c', 'conv-c', 1)
+    expect(store.get('a')?.conversationId).toBe('conv-a')
+    expect(store.get('b')).toBeUndefined()
+    expect(store.get('c')?.conversationId).toBe('conv-c')
+  })
+})
 
 describe('sessionKeyOf', () => {
   it('is stable for the same opening message', () => {

@@ -2,7 +2,7 @@
   "name": "dsh-connect-doubao-macos",
   "displayName": "DSH Connect Doubao (macOS port)",
   "description": "把豆包（Doubao）账号接入 DeepSeek Harness：实时发现线上菜单模型、对话框直接展示计费倍率与对比、按需透传上游返回的 reasoning_content（不保证提供隐藏推理）、「工作任务」模型（走会员付费额度）、Seedream 生图，以及原生 Token 用量/会话统计与实时额度看板。只需浏览器扫码登录一次。macOS / Windows 双平台：Windows 用 DPAPI 密封会话，macOS 用登录钥匙串里的密钥 + AES-256-GCM 密封。",
-  "version": "0.9.0-macos.1",
+  "version": "0.9.0-macos.2",
   "license": "MIT",
   "keywords": [
     "dsh-plugin",
@@ -105,6 +105,8 @@
     "react": "^18.3.1",
     "tsdown": "^0.22.2",
     "typescript": "^5.9.3",
-    "vitest": "^4.1.11"
+    "vitest": "^4.1.11",
+    "ws": "^8.23.0",
+    "@types/ws": "^8.18.2"
   }
 }

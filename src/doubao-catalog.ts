@@ -33,11 +33,37 @@ export const DOUBAO_PROVIDER = 'doubao'
 /** Shown in the DSH model picker. */
 export const DOUBAO_PROVIDER_DISPLAY_NAME = '豆包（Doubao）'
 
-/** How much context a Doubao conversation holds. */
-export const DOUBAO_CONTEXT_WINDOW = 256_000
+/**
+ * How much context a Doubao conversation holds, in tokens.
+ *
+ * NOT 256k. Doubao's real ceiling is on the request BODY: 262,144 UTF-8 bytes,
+ * measured 2026-11-22 (262,144 ASCII characters pass, 262,145 fail). The
+ * server answers an oversized body with 710020202 "common invalid param", not
+ * with a context-length error, so a window that merely *looks* like 256k
+ * silently breaks the host's compaction: it would let history grow to a
+ * threshold of ~158k tokens — roughly 475 KB of Chinese — and every request
+ * past the byte wall fails with no way back.
+ *
+ * The estimator prices whitespace at 0.25 tokens/char, i.e. the worst case is
+ * 4 UTF-8 bytes per token. The host's default compaction trigger for this
+ * window is `min(W × 0.8, W − O − 65536)` = 54,272 tokens, i.e. 217,088 bytes
+ * in the worst case — under the 262,144-byte wall with room for the tool
+ * contract. A smaller window is NOT safe: at 64k the default headroom alone
+ * (65,536) exceeds `W − O`, the compaction policy fails to resolve, and no
+ * automatic compaction runs at all.
+ *
+ * The shim's own byte-budget fitter is the backstop when this still overflows.
+ */
+export const DOUBAO_CONTEXT_WINDOW = 128_000
 
-/** Generous output ceiling; the subscription quota, not this, is the real bound. */
-export const DOUBAO_MAX_TOKENS = 32_000
+/**
+ * Output ceiling, in tokens.
+ *
+ * Deliberately modest: the compaction trigger is `W − O − headroom`, so a
+ * large reservation here would shrink the usable input window for no gain —
+ * Doubao's subscription quota, not this number, is the real bound on replies.
+ */
+export const DOUBAO_MAX_TOKENS = 8_192
 
 /**
  * `option.agent_mode` / `ext.agent_mode`.

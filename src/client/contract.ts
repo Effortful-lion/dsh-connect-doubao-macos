@@ -73,6 +73,8 @@ export interface DoubaoQuotaView {
  * sends the user to re-login when re-login cannot possibly help.
  */
 export type DoubaoAccountState =
+  /** Initial quota read is still in flight. */
+  | 'loading'
   /** Quota read cleanly. */
   | 'ok'
   /** Doubao holds no usable session cookie. Re-login in the app fixes this. */
@@ -88,6 +90,12 @@ export type DoubaoAccountState =
   /** Network/timeout reaching Doubao. */
   | 'network'
 
+export interface ClassifyQuotaOptions {
+  loading?: boolean | undefined
+  auth?: DoubaoAuthView | undefined
+  routeError?: string | null | undefined
+}
+
 /**
  * Classify the payload into one account state.
  *
@@ -97,17 +105,32 @@ export type DoubaoAccountState =
  * the presentation, and a wording change must degrade to `network` rather than
  * crash the card.
  */
-export function classifyQuotaView(view: DoubaoQuotaView | undefined): DoubaoAccountState {
-  if (view === undefined) return 'unreadable'
+export function classifyQuotaView(
+  view: DoubaoQuotaView | undefined,
+  options?: ClassifyQuotaOptions,
+): DoubaoAccountState {
+  if (view === undefined) {
+    if (options?.loading === true) return 'loading'
+    if (options?.auth?.signedIn === false) {
+      const detail = options.auth.detail ?? ''
+      if (/dpapi|decrypt|无法解密|无法读取|格式损坏/i.test(detail)) return 'unreadable'
+      return 'signed_out'
+    }
+    if (options?.routeError !== undefined && options.routeError !== null && options.routeError !== '') {
+      return 'network'
+    }
+    return 'unreadable'
+  }
   if (view.ok) return view.exhausted ? 'exhausted' : 'ok'
   const text = (view.error ?? '').toLowerCase()
   // A missing profile or a failed decrypt is a LOCAL read failure, not a
   // sign-out: re-logging into the app changes nothing.
-  if (/credential|password data|dpapi|decrypt|profile|encrypted_key|local state|无法解密/i.test(text)) return 'unreadable'
+  if (/dpapi|decrypt|unprotect|password data|encrypted_key|local state|无法解密|无法读取|格式损坏/i.test(text)) return 'unreadable'
+  if (/710012001|session_dead|session rejected|http 401|http 403/i.test(text)) return 'session_dead'
   // The host's own "no browser session yet" text is Chinese, and so are the
   // upstream hints, so both languages are matched: a session problem misread as
   // a network problem sends the user to check their Wi-Fi instead of scanning.
-  if (/session cookie|sign in|login|710012001|session_dead|登录态|重新登录/i.test(text)) return 'signed_out'
+  if (/session cookie|sign in|login|还没有浏览器登录态|credentials unavailable|登录态|重新登录/i.test(text)) return 'signed_out'
   if (/710022004|risk|slider|captcha|rate.?limit|风控|滑块/i.test(text)) return 'risk_challenge'
   return 'network'
 }

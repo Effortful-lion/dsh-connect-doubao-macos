@@ -4,6 +4,20 @@
 
 ---
 
+## 0.9.0-macos.2 — 2026-11-23
+
+> 把上游 `dsh-connect-doubao` v0.8.1 的登录稳定性、额度状态与风控身份对齐修复移植到 macOS 移植版。
+
+### 变更
+
+- **风控身份对齐**：扫码登录时自动从浏览器抓取网页请求身份（UA / Referer / sec-ch-ua / 完整 query），写入 `~/.dsh/doubao-browser-fingerprint.json`；直连请求整体替换桌面端常量，解决「网页 cookie + 桌面端伪装」错配导致的 `710022004` / “违反豆包使用规范”误拦。
+- `doctor` 新增 `identity` 检查项，并显示 `--fingerprint` / `--resume` / `--verify` / `--relay` 恢复命令。
+- 本地熔断与服务端风控分离：本地冷却明确提示“本次未向上游发请求”，不再冒充服务端风控。
+- 凭据读取改为诊断式结果（missing / unreadable / incomplete），登录态失效时清理密封缓存。
+- 新增 `doubao-browser-relay` 与 CDP 指纹抓取；补齐上游 0.8.1 的测试（285 通过）。
+
+---
+
 ## 0.9.0-macos.1 — 2026-11-22
 
 > 破坏性改名：包名、插件 ID、CLI 命令与 Web 路由统一改为 `dsh-connect-doubao-macos`，以独立身份发布到 npm 与 GitHub。

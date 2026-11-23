@@ -21,7 +21,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { applyTaskBookkeeping, assembleReplyText, buildChatBody, isTaskBookkeeping, unsupportedLocalTaskResult } from '../src/doubao-upstream.ts'
+import { applyTaskBookkeeping, assembleReplyText, buildChatBody, buildHeaders, buildQueryUrl, isTaskBookkeeping, unsupportedLocalTaskResult } from '../src/doubao-upstream.ts'
 import { DOUBAO_MODELS, doubaoCatalogEntries, findReasoningLevel, levelIdOf } from '../src/doubao-catalog.ts'
 
 /** A body for the default chat turn. */
@@ -32,6 +32,36 @@ function body(overrides: Record<string, unknown> = {}) {
 afterEach(() => {
   delete process.env.DSH_DOUBAO_TASK
   delete process.env.DSH_DOUBAO_MODE_ID
+})
+
+describe('browser QR-session fingerprint overrides', () => {
+  it('uses one browser identity across query and headers', () => {
+    const profile = {
+      userAgent: 'Mozilla/5.0 Chrome/157.0.0.0 Safari/537.36',
+      referer: 'https://www.doubao.com/chat/',
+      secChUa: '"Not-A.Brand";v="99", "Google Chrome";v="157", "Chromium";v="157"',
+      query: {
+        aid: '497858', real_aid: '497858',
+        pc_version: '3.46.7', doubao_pc_version: '3.46.7',
+        device_id: 'browser-device', tea_uuid: 'browser-tea', web_id: 'browser-tea',
+        fp: 'verify_browser', device_platform: 'web', web_platform: 'browser',
+        doubao_device_platform: 'web',
+      },
+    }
+    const headers = buildHeaders({ header: 'sessionid=test' } as any, {}, profile)
+    expect(headers['User-Agent']).toBe(profile.userAgent)
+    expect(headers.Referer).toBe(profile.referer)
+    expect(headers['sec-ch-ua']).toBe(profile.secChUa)
+    const url = new URL(buildQueryUrl('https://www.doubao.com/chat/completion', undefined, profile))
+    for (const [key, value] of Object.entries(profile.query)) {
+      expect(url.searchParams.get(key)).toBe(value)
+    }
+    // Desktop-only fields must not leak into the browser identity.
+    expect(url.searchParams.has('runtime_version')).toBe(false)
+    expect(url.searchParams.has('chromium_version')).toBe(false)
+    expect(url.searchParams.has('channel')).toBe(false)
+    expect(url.searchParams.has('client_platform')).toBe(false)
+  })
 })
 
 describe('chat mode is what the desktop client actually sends', () => {
